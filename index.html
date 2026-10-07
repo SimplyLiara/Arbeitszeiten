@@ -411,6 +411,7 @@ function showLogin(reg){
 }
 async function gate(){
   document.body.classList.toggle('admin',user==='admin'); document.body.classList.toggle('out',!user);
+  if(configured()&&/^#k=/.test(location.hash))history.replaceState(null,'',location.pathname+'#/start');
   if(configured()&&user){render(); if(isUser()&&await pull())render(); else if(!isUser())status('ok','Verwaltung'); return}
   if(user){user=null;ls.del(LSU);document.body.classList.add('out');document.body.classList.remove('admin')}
   render(); status('','Nicht angemeldet');
@@ -819,7 +820,9 @@ function openSettings(){
     try{
       const blob=await lockCfg(cfg,pw), a=document.createElement('a');
       a.href=URL.createObjectURL(new Blob([JSON.stringify(blob)],{type:'application/json'}));a.download='zugang.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
-      $('#zp').value=''; m.textContent='zugang.json wurde heruntergeladen. Jetzt neben die index.html ins Website-Repository hochladen.';
+      const link=location.origin+location.pathname+'#k='+encodeURIComponent(pw); $('#zp').value='';
+      m.innerHTML='zugang.json wurde heruntergeladen. Jetzt neben die index.html ins Website-Repository hochladen.<br><br><b>Schnellzugriff-Link</b> – öffnet die Seite ohne Team-Passwort direkt bei der Anmeldung. Behandle ihn wie einen Schlüssel:<br><input id="zl" readonly style="margin:8px 0;font-size:13px"><button class="btn sec" id="zc">Link kopieren</button>';
+      $('#zl').value=link; $('#zc').onclick=async()=>{try{await navigator.clipboard.writeText(link)}catch(e){$('#zl').select();document.execCommand('copy')}$('#zc').textContent='Kopiert'};
     }catch(e){m.textContent='Verschlüsselung in diesem Browser nicht möglich.'}
   });
   if(!isUser())return;
@@ -852,6 +855,13 @@ async function unlockCfg(b,pw){
 }
 async function offerUnlock(){
   let blob; try{const r=await fetch('zugang.json?_='+Date.now(),{cache:'no-store'});if(!r.ok)return false;blob=await r.json();if(!blob.ct)return false}catch(e){return false}
+  // Schnellzugriff-Link: Team-Passwort steckt im Link (#k=…), kein Eintippen nötig
+  const km=location.hash.match(/^#k=(.+)$/);
+  if(km){
+    history.replaceState(null,'',location.pathname+'#/start');
+    try{const c=await unlockCfg(blob,decodeURIComponent(km[1])); try{store=sessionStorage}catch(e){}
+      cfg=Object.assign(cfg,c); ls.set(LSC,JSON.stringify(cfg)); ls.set(LSD,'0'); sha=null; gate(); return true}catch(e){}
+  }
   openDlg(`<h3>Team-Passwort</h3>
     <p class="muted" style="margin:0 0 14px">Dieses Gerät ist noch nicht freigeschaltet. Gib einmalig das Team-Passwort ein.</p>
     <label class="f">Team-Passwort<input type="password" id="up" autocomplete="current-password"></label>
