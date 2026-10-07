@@ -15,7 +15,7 @@
   --bg:#f5f5f7; --card:#fff; --text:#1d1d1f; --muted:#6e6e73; --line:#d2d2d7; --soft:#e8e8ed;
   --blue:#0071e3; --blue-h:#0077ed; --nav:rgba(251,251,253,.8);
   --early:#b25000; --early-bg:#fff1dc; --late:#5e35b1; --late-bg:#ece6fb;
-  --u:#1a7f37; --u-bg:#dff5e3; --k:#c9252d; --k-bg:#fde3e4; --koa:#a85a00; --koa-bg:#ffe9cc; --f:#48484a; --f-bg:#e5e5ea;
+  --u:#1a7f37; --u-bg:#dff5e3; --k:#c9252d; --k-bg:#fde3e4; --koa:#a85a00; --koa-bg:#ffe9cc; --f:#48484a; --f-bg:#e5e5ea; --ru:#00697a; --ru-bg:#d6f1f5;
   --ev:#0071e3; --ev-bg:#e1efff; --pos:#1a7f37; --neg:#c9252d;
   --r:18px;
 }
@@ -24,7 +24,7 @@
     --bg:#000; --card:#1c1c1e; --text:#f5f5f7; --muted:#a1a1a6; --line:#3a3a3c; --soft:#2c2c2e;
     --blue:#2997ff; --blue-h:#47a6ff; --nav:rgba(22,22,23,.8);
     --early:#ffb340; --early-bg:#3a2a10; --late:#b79cff; --late-bg:#2a2140;
-    --u:#4cd964; --u-bg:#12331b; --k:#ff6961; --k-bg:#3d1616; --koa:#ffb340; --koa-bg:#3a2a10; --f:#c7c7cc; --f-bg:#2c2c2e;
+    --u:#4cd964; --u-bg:#12331b; --k:#ff6961; --k-bg:#3d1616; --koa:#ffb340; --koa-bg:#3a2a10; --f:#c7c7cc; --f-bg:#2c2c2e; --ru:#5ad4e6; --ru-bg:#0c2f36;
     --ev:#64b5ff; --ev-bg:#0f2a45; --pos:#4cd964; --neg:#ff6961;
   }
 }
@@ -92,7 +92,7 @@ input:focus,select:focus,button:focus-visible,a:focus-visible{outline:3px solid 
 
 .badge{display:inline-block;border-radius:980px;padding:2px 9px;font-size:12px;font-weight:600;white-space:nowrap}
 .b-F{background:var(--early-bg);color:var(--early)} .b-S{background:var(--late-bg);color:var(--late)} .b-0{background:var(--soft);color:var(--muted)}
-.a-U,.a-U2{background:var(--u-bg);color:var(--u)} .a-K{background:var(--k-bg);color:var(--k)} .a-koA{background:var(--koa-bg);color:var(--koa)} .a-Ft{background:var(--f-bg);color:var(--f)}
+.a-U,.a-U2{background:var(--u-bg);color:var(--u)} .a-RU,.a-RU2{background:var(--ru-bg);color:var(--ru)} .a-K{background:var(--k-bg);color:var(--k)} .a-koA{background:var(--koa-bg);color:var(--koa)} .a-Ft{background:var(--f-bg);color:var(--f)}
 .b-ev{background:var(--ev-bg);color:var(--ev)}
 .b-td{background:var(--soft);color:var(--text)}
 .todo{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--soft)}
@@ -132,7 +132,7 @@ table.days th.l,table.days td.l{text-align:left}
 .day .n{display:flex;justify-content:space-between;align-items:center;font-size:15px;font-weight:600}
 .day.off .n{color:var(--muted)}
 .day .badge{align-self:flex-start;max-width:100%;overflow:hidden;text-overflow:ellipsis}
-.day.abs-U,.day.abs-U2{background:var(--u-bg)} .day.abs-K{background:var(--k-bg)} .day.abs-koA{background:var(--koa-bg)} .day.abs-Ft{background:var(--f-bg)}
+.day.abs-U,.day.abs-U2{background:var(--u-bg)} .day.abs-RU,.day.abs-RU2{background:var(--ru-bg)} .day.abs-K{background:var(--k-bg)} .day.abs-koA{background:var(--koa-bg)} .day.abs-Ft{background:var(--f-bg)}
 .sh{font-size:11px;font-weight:700;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center}
 .legend{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 0}
 @media (max-width:640px){
@@ -207,34 +207,34 @@ function workedOf(e){
 }
 function istOf(e,soll){
   const a=e&&e.a;
-  if(a==='K'||a==='k.o.A.'||a==='U'||a==='F')return soll;
-  if(a==='U/2')return soll/2+workedOf(e);
+  if(a==='K'||a==='k.o.A.'||a==='U'||a==='RU'||a==='F')return soll;
+  if(a==='U/2'||a==='RU/2')return soll/2+workedOf(e);
   return workedOf(e);
 }
 function computeYear(data,y){
   const ys=data.years[y], st=data.settings;
   const rows=[], months=[];
-  for(let m=0;m<12;m++)months.push({ist:0,soll:0,gz:0,u:0,k:0,koa:0});
+  for(let m=0;m<12;m++)months.push({ist:0,soll:0,gz:0,u:0,ru:0,k:0,koa:0});
   let cum=Number(ys.startGleitzeit)||0;
-  const tot={ist:0,soll:0,gz:0,u:0,k:0,koa:0};
+  const tot={ist:0,soll:0,gz:0,u:0,ru:0,k:0,koa:0};
   for(let d=y+'-01-01';d.slice(0,4)==y;d=addDays(d,1)){
     const e=data.days[d]||{}, soll=sollOf(d,ys,st), ist=istOf(e,soll);
     const gz=(!e.a&&!e.s&&!e.e)?0:ist-soll;
     cum+=gz+(Number(e.k)||0);
     const M=months[Number(d.slice(5,7))-1];
     M.ist+=ist;M.soll+=soll;M.gz+=gz;
-    if(e.a==='U')M.u+=1; if(e.a==='U/2')M.u+=.5; if(e.a==='K')M.k+=1; if(e.a==='k.o.A.')M.koa+=1;
+    if(e.a==='U')M.u+=1; if(e.a==='U/2')M.u+=.5; if(e.a==='RU')M.ru+=1; if(e.a==='RU/2')M.ru+=.5; if(e.a==='K')M.k+=1; if(e.a==='k.o.A.')M.koa+=1;
     rows.push({d,shift:shiftOf(d,st),soll,ist,gz,cum});
   }
   for(const M of months)for(const k in tot)tot[k]+=M[k];
-  return {rows,months,tot,end:cum,rest:(Number(ys.urlaub)||0)-tot.u};
+  return {rows,months,tot,end:cum,rest:(Number(ys.urlaub)||0)-tot.u,restVJ:(Number(ys.restVorjahr)||0)-tot.ru};
 }
 //CORE-END
 
 /* ---------- Daten & Speicher ---------- */
 const LS='azeit.data', LSC='azeit.cfg', LSD='azeit.dirty', LSU='azeit.user', UF='users.json';
-const ABS=[['U','Urlaub'],['U/2','½ Urlaub'],['K','Krank'],['k.o.A.','Krank o. Attest'],['F','Feiertag']];
-const ABSN=Object.fromEntries(ABS), ACL={'U':'U','U/2':'U2','K':'K','k.o.A.':'koA','F':'Ft'};
+const ABS=[['U','Urlaub'],['U/2','½ Urlaub'],['RU','Resturlaub'],['RU/2','½ Resturlaub'],['K','Krank'],['k.o.A.','Krank o. Attest'],['F','Feiertag']];
+const ABSN=Object.fromEntries(ABS), ACL={'U':'U','U/2':'U2','RU':'RU','RU/2':'RU2','K':'K','k.o.A.':'koA','F':'Ft'};
 const MON=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 const DOW=['Mo','Di','Mi','Do','Fr','Sa','So'], DOWL=['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
 const SHN={F:'Frühschicht',S:'Spätschicht'};
@@ -278,7 +278,7 @@ const $=(q,el=document)=>el.querySelector(q), $$=(q,el=document)=>[...el.querySe
 function ensureYear(y){
   y=String(y); if(data.years[y])return data.years[y];
   const p=data.years[String(y-1)];
-  data.years[y]=p?{startGleitzeit:Math.round(computeYear(data,String(y-1)).end*100)/100,urlaub:p.urlaub,sollMoDo:p.sollMoDo,sollFr:p.sollFr}
+  data.years[y]=p?{startGleitzeit:Math.round(computeYear(data,String(y-1)).end*100)/100,restVorjahr:Math.max(0,computeYear(data,String(y-1)).rest),urlaub:p.urlaub,sollMoDo:p.sollMoDo,sollFr:p.sollFr}
                  :{startGleitzeit:0,urlaub:30,sollMoDo:8.25,sollFr:8};
   return data.years[y];
 }
@@ -505,9 +505,9 @@ function pStart(){
     $('#hinfo').innerHTML=s;
     $('#stats').innerHTML=`
       <div class="card stat"><div class="l">Gleitzeit gesamt</div><div class="v ${cls(c.end)}">${sg(c.end)}</div><div class="s">Stunden (${hm(c.end)})</div></div>
-      <div class="card stat"><div class="l">Resturlaub ${y}</div><div class="v">${dnum(c.rest)}</div><div class="s">von ${dnum(data.years[y].urlaub)} Tagen</div></div>
-      <div class="card stat"><div class="l">Krankentage</div><div class="v">${dnum(c.tot.k)}</div><div class="s">mit Attest</div></div>
-      <div class="card stat"><div class="l">Krank ohne Attest</div><div class="v">${dnum(c.tot.koa)}</div><div class="s">k.o.A.-Tage</div></div>`;
+      <div class="card stat"><div class="l">Urlaub ${y} übrig</div><div class="v">${dnum(c.rest)}</div><div class="s">von ${dnum(data.years[y].urlaub)} Tagen · ${dnum(c.tot.u)} verplant</div></div>
+      <div class="card stat"><div class="l">Resturlaub aus ${y-1}</div><div class="v ${c.restVJ<0?'neg':''}">${dnum(c.restVJ)}</div><div class="s">${Number(data.years[y].restVorjahr)?`von ${dnum(data.years[y].restVorjahr)} Tagen · ${dnum(c.tot.ru)} verplant`:'keine Tage übertragen'}</div></div>
+      <div class="card stat"><div class="l">Krankentage</div><div class="v">${dnum(c.tot.k+c.tot.koa)}</div><div class="s">${dnum(c.tot.k)} mit Attest · ${dnum(c.tot.koa)} ohne (k.o.A.)</div></div>`;
   };
   upd();
   $('#hs').onchange=e=>{setDay(today(),{s:e.target.value});upd()};
@@ -586,21 +586,22 @@ function pZeiten(){
       <div class="row" style="margin-top:14px">
         <label class="f">Anfangs-Gleitzeit (Std.)<input type="number" step="0.01" data-ys="startGleitzeit" value="${ys.startGleitzeit}"></label>
         <label class="f">Jahresurlaub (Tage)<input type="number" step="0.5" data-ys="urlaub" value="${ys.urlaub}"></label>
+        <label class="f">Resturlaub aus ${y-1} (Tage)<input type="number" step="0.5" min="0" data-ys="restVorjahr" value="${ys.restVorjahr||0}"></label>
         <label class="f">Sollzeit Mo–Do (Std.)<input type="number" step="0.01" data-ys="sollMoDo" value="${ys.sollMoDo}"></label>
         <label class="f">Sollzeit Fr Frühschicht (Std.)<input type="number" step="0.01" data-ys="sollFr" value="${ys.sollFr}"></label>
       </div>
-      ${data.years[String(y-1)]?'<p style="margin:12px 0 0"><button class="btn sec" id="carry">Gleitzeit-Übertrag aus '+(y-1)+' übernehmen</button></p>':''}
+      ${data.years[String(y-1)]?'<p style="margin:12px 0 0"><button class="btn sec" id="carry">Gleitzeit und Resturlaub aus '+(y-1)+' übernehmen</button></p>':''}
     </details>
   </div>
   <div class="card"><h3>Monatsübersicht</h3><div class="scroll"><table id="ov"></table></div></div>
   <h2 id="mt"></h2>
   <div class="pills nowrap" style="margin-bottom:14px">${MON.map((m,k)=>`<button class="pill ${k===view.month?'on':''}" data-m="${k}">${m.slice(0,3)}</button>`).join('')}</div>
   <div class="card" style="padding:12px 0"><div class="scroll"><table class="days" id="dt"></table></div></div>
-  <p class="note">Abwesenheit: K = krank, k.o.A. = krank ohne Attest, U = Urlaub, U/2 = halber Urlaubstag, F = Feiertag. Die Schicht wechselt wochenweise; Freitage zählen nur in Frühschichtwochen. Einträge erscheinen automatisch im Kalender.</p>`;
+  <p class="note">Abwesenheit: K = krank, k.o.A. = krank ohne Attest, U = Urlaub, U/2 = halber Urlaubstag, RU = Resturlaub aus dem Vorjahr, RU/2 = halber Resturlaubstag, F = Feiertag. Die Schicht wechselt wochenweise; Freitage zählen nur in Frühschichtwochen. Einträge erscheinen automatisch im Kalender.</p>`;
   $$('[data-y]').forEach(b=>b.onclick=()=>{view.year=b.dataset.y;view.month=null;pZeiten()});
   $('#addy').onclick=()=>{const n=prompt('Welches Jahr hinzufügen?',String(Number(years[years.length-1])+1));if(!n)return;if(!/^20\d\d$/.test(n.trim()))return alert('Bitte eine Jahreszahl wie 2027 eingeben.');ensureYear(n.trim());save();view.year=n.trim();view.month=0;pZeiten()};
   $$('[data-ys]').forEach(i=>i.onchange=()=>{ys[i.dataset.ys]=Number(i.value)||0;save();refreshZ()});
-  if($('#carry'))$('#carry').onclick=()=>{ys.startGleitzeit=Math.round(computeYear(data,String(y-1)).end*100)/100;save();pZeiten()};
+  if($('#carry'))$('#carry').onclick=()=>{const pc=computeYear(data,String(y-1));ys.startGleitzeit=Math.round(pc.end*100)/100;ys.restVorjahr=Math.max(0,pc.rest);save();pZeiten()};
   $$('[data-m]').forEach(b=>b.onclick=()=>{view.month=Number(b.dataset.m);$$('[data-m]').forEach(x=>x.classList.toggle('on',x===b));drawMonth()});
   drawMonth();
 }
@@ -640,14 +641,14 @@ function refreshZ(){
   $('[data-s=ist]').textContent=f2(M.ist);$('[data-s=soll]').textContent=f2(M.soll);
   $('[data-s=gz]').textContent=sg(M.gz);$('[data-s=gz]').className=cls(M.gz);
   $('[data-s=cum]').textContent=sg(last.cum);$('[data-s=cum]').className=cls(last.cum);
-  const line=(n,M,c2)=>`<tr class="${c2||''}"><td>${n}</td><td>${f2(M.ist)}</td><td>${f2(M.soll)}</td><td class="${cls(M.gz)}">${sg(M.gz)}</td><td>${dnum(M.u)}</td><td>${dnum(M.k)}</td><td>${dnum(M.koa)}</td></tr>`;
-  $('#ov').innerHTML='<thead><tr><th>Monat</th><th>Ist-Stunden</th><th>Soll-Stunden</th><th>Gleitzeit Monat</th><th>Urlaubstage</th><th>Krankentage</th><th>k.o.A.-Tage</th></tr></thead><tbody>'+
+  const line=(n,M,c2)=>`<tr class="${c2||''}"><td>${n}</td><td>${f2(M.ist)}</td><td>${f2(M.soll)}</td><td class="${cls(M.gz)}">${sg(M.gz)}</td><td>${dnum(M.u)}</td><td>${dnum(M.ru)}</td><td>${dnum(M.k)}</td><td>${dnum(M.koa)}</td></tr>`;
+  $('#ov').innerHTML='<thead><tr><th>Monat</th><th>Ist-Stunden</th><th>Soll-Stunden</th><th>Gleitzeit Monat</th><th>Urlaubstage</th><th>Resturlaub</th><th>Krankentage</th><th>k.o.A.-Tage</th></tr></thead><tbody>'+
     c.months.map((M,k)=>line(MON[k],M)).join('')+line('Gesamt',c.tot,'sum')+'</tbody>';
   $('#zstats').innerHTML=`
     <div class="card stat"><div class="l">Gleitzeit gesamt</div><div class="v ${cls(c.end)}">${sg(c.end)}</div><div class="s">Stunden, inkl. Korrekturen</div></div>
     <div class="card stat"><div class="l">Verbleibende Urlaubstage</div><div class="v">${dnum(c.rest)}</div><div class="s">${dnum(c.tot.u)} von ${dnum(data.years[y].urlaub)} genommen/geplant</div></div>
-    <div class="card stat"><div class="l">Krankentage</div><div class="v">${dnum(c.tot.k)}</div><div class="s">mit Attest</div></div>
-    <div class="card stat"><div class="l">Krank ohne Attest</div><div class="v">${dnum(c.tot.koa)}</div><div class="s">k.o.A.</div></div>`;
+    <div class="card stat"><div class="l">Resturlaub aus ${y-1}</div><div class="v ${c.restVJ<0?'neg':''}">${dnum(c.restVJ)}</div><div class="s">${Number(data.years[y].restVorjahr)?`von ${dnum(data.years[y].restVorjahr)} Tagen · ${dnum(c.tot.ru)} verplant`:'keine Tage übertragen'}</div></div>
+    <div class="card stat"><div class="l">Krankentage</div><div class="v">${dnum(c.tot.k+c.tot.koa)}</div><div class="s">${dnum(c.tot.k)} mit Attest · ${dnum(c.tot.koa)} ohne (k.o.A.)</div></div>`;
 }
 
 /* ---------- Kalender ---------- */
