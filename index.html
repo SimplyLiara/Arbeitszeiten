@@ -548,7 +548,7 @@ function pRechner(){
   <div class="card"><div class="row">
     <label class="f">Minuten<input type="number" id="cm" inputmode="numeric" placeholder="z. B. 25"></label>
     <label class="f">Dezimalstunden<input type="number" id="cd" step="0.01" inputmode="decimal" placeholder="z. B. 0,42"></label>
-  </div><p class="note" style="margin:12px 0 0">Praktisch für die Gleitzeitkorrektur.</p></div>`;
+  </div></div>`;
   const calc=()=>{
     const d=$('#rd').value||t, x={s:$('#rs').value,e:$('#re').value,p:Number($('#rp').value)||0};
     const ys=ensureYearSoft(d), sh=shiftOf(d,data.settings), soll=sollOf(d,ys,data.settings), ist=workedOf(x);
@@ -597,7 +597,7 @@ function pZeiten(){
   <h2 id="mt"></h2>
   <div class="pills nowrap" style="margin-bottom:14px">${MON.map((m,k)=>`<button class="pill ${k===view.month?'on':''}" data-m="${k}">${m.slice(0,3)}</button>`).join('')}</div>
   <div class="card" style="padding:12px 0"><div class="scroll"><table class="days" id="dt"></table></div></div>
-  <p class="note">Abwesenheit: K = krank, k.o.A. = krank ohne Attest, U = Urlaub, U/2 = halber Urlaubstag, RU = Resturlaub aus dem Vorjahr, RU/2 = halber Resturlaubstag, F = Feiertag. Die Schicht wechselt wochenweise; Freitage zählen nur in Frühschichtwochen. Einträge erscheinen automatisch im Kalender.</p>`;
+  <p class="note">Abwesenheit: K = krank, k.o.A. = krank ohne Attest, U = Urlaub, U/2 = halber Urlaubstag, RU = Resturlaub aus dem Vorjahr, RU/2 = halber Resturlaubstag, F = Feiertag. Die Schicht wechselt wochenweise; Freitage zählen nur in Frühschichtwochen. Die Korrektur wird in Minuten eingegeben (z. B. −6 oder 15) und als Dezimalstunden in der Gleitzeit verrechnet. Einträge erscheinen automatisch im Kalender.</p>`;
   $$('[data-y]').forEach(b=>b.onclick=()=>{view.year=b.dataset.y;view.month=null;pZeiten()});
   $('#addy').onclick=()=>{const n=prompt('Welches Jahr hinzufügen?',String(Number(years[years.length-1])+1));if(!n)return;if(!/^20\d\d$/.test(n.trim()))return alert('Bitte eine Jahreszahl wie 2027 eingeben.');ensureYear(n.trim());save();view.year=n.trim();view.month=0;pZeiten()};
   $$('[data-ys]').forEach(i=>i.onchange=()=>{ys[i.dataset.ys]=Number(i.value)||0;save();refreshZ()});
@@ -609,7 +609,7 @@ function drawMonth(){
   const y=view.year, m=view.month, t=today(), pre=y+'-'+String(m+1).padStart(2,'0');
   $('#mt').textContent=MON[m]+' '+y+'.';
   const c=computeYear(data,y), rows=c.rows.filter(r=>r.d.startsWith(pre));
-  $('#dt').innerHTML=`<thead><tr><th>Datum</th><th class="l">Schicht</th><th class="l">Abwesenheit</th><th class="l">Beginn</th><th class="l">Ende</th><th class="l">Zusatzpause</th><th>Ist</th><th>Soll</th><th class="l">Korrektur</th><th>Gleitzeit Tag</th><th>Gleitzeit gesamt</th></tr></thead><tbody>`+
+  $('#dt').innerHTML=`<thead><tr><th>Datum</th><th class="l">Schicht</th><th class="l">Abwesenheit</th><th class="l">Beginn</th><th class="l">Ende</th><th class="l">Zusatzpause</th><th>Ist</th><th>Soll</th><th class="l">Korrektur (Min.)</th><th>Gleitzeit Tag</th><th>Gleitzeit gesamt</th></tr></thead><tbody>`+
   rows.map(r=>{const e=data.days[r.d]||{}, w=wd(r.d);
     return `<tr data-d="${r.d}" class="${w>4?'we':''} ${r.d===t?'today':''}">
       <td>${DOW[w]} ${dShort(r.d)}</td>
@@ -619,12 +619,12 @@ function drawMonth(){
       <td class="in"><input type="time" data-k="e" value="${e.e||''}" aria-label="Arbeitsende"></td>
       <td class="in"><input type="number" data-k="p" min="0" step="1" inputmode="numeric" value="${e.p||''}" placeholder="Min." aria-label="Zusatzpause in Minuten" style="width:76px"></td>
       <td data-c="ist"></td><td data-c="soll"></td>
-      <td class="in"><input type="number" data-k="k" step="0.01" inputmode="decimal" value="${e.k||''}" placeholder="Std." aria-label="Gleitzeitkorrektur" style="width:84px"></td>
+      <td class="in"><input type="number" data-k="k" step="1" inputmode="numeric" value="${e.k?Math.round(e.k*60):''}" placeholder="Min." aria-label="Gleitzeitkorrektur in Minuten" title="${e.k?sg(e.k)+' Std.':''}" style="width:84px"></td>
       <td data-c="gz"></td><td data-c="cum"></td></tr>`}).join('')+
   `</tbody><tfoot><tr class="sum"><td>Monatssumme</td><td></td><td></td><td></td><td></td><td></td><td data-s="ist"></td><td data-s="soll"></td><td></td><td data-s="gz"></td><td data-s="cum"></td></tr></tfoot>`;
   $$('#dt [data-k]').forEach(i=>i.onchange=()=>{
     const k=i.dataset.k, d=i.closest('tr').dataset.d;
-    setDay(d,{[k]:(k==='p'||k==='k')?(i.value===''?'':Number(i.value)):i.value}); refreshZ();
+    setDay(d,{[k]:i.value===''?'':k==='k'?Math.round(Number(i.value))/60:k==='p'?Number(i.value):i.value}); if(k==='k')i.title=i.value?sg(Math.round(Number(i.value))/60)+' Std.':''; refreshZ();
   });
   refreshZ();
 }
