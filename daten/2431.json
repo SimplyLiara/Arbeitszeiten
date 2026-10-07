@@ -46,6 +46,16 @@
    "k": 4.125
   }
  },
- "events": [],
+ "events": [
+  {
+   "id": "muxrvfz1445",
+   "date": "2026-10-12",
+   "title": "Azubi",
+   "time": "",
+   "end": "",
+   "rep": "d",
+   "until": "2026-11-06"
+  }
+ ],
  "todos": []
 }
