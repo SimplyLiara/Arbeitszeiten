@@ -48,6 +48,10 @@ nav .sp{flex:1}
 #sync.ok i{background:var(--pos)} #sync.busy i{background:#ff9f0a} #sync.err i{background:var(--neg)}
 #gear{border:0;background:none;cursor:pointer;font-size:18px;padding:6px 4px 6px 8px;opacity:.8;line-height:1}
 nav .sm{display:none}
+nav a.tab.adm{display:none}
+body.admin nav a.tab{display:none}
+body.admin nav a.tab.adm{display:inline}
+body.out nav a.tab{visibility:hidden}
 @media (max-width:520px){#sync span{display:none} nav a.tab{padding:6px 7px} nav .in{gap:1px;padding:0 10px;overflow-x:auto} nav .lg{display:none} nav .sm{display:inline}}
 
 main{max-width:1024px;margin:0 auto;padding:0 16px 80px}
@@ -145,7 +149,7 @@ ul.list{list-style:none;margin:0;padding:0}
 ul.list li{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--soft)}
 ul.list li:last-child{border-bottom:0}
 ul.list .d{font-size:13px;color:var(--muted);min-width:104px}
-ul.list .btn.danger{padding:9px 4px;font-size:14px}
+ul.list .btn.danger,ul.list .btn.ghost{padding:9px 4px;font-size:14px}
 ul.list li{flex-wrap:wrap}
 ul.list li .x{min-width:150px}
 label.f[hidden]{display:none}
@@ -162,12 +166,13 @@ footer{text-align:center;font-size:12px;color:var(--muted);padding:0 16px 40px}
   <a class="tab" href="#/zeiten"><span class="lg">Zeiterfassung</span><span class="sm">Zeiten</span></a>
   <a class="tab" href="#/kalender">Kalender</a>
   <a class="tab" href="#/aufgaben">Aufgaben</a>
+  <a class="tab adm" href="#/verwaltung">Verwaltung</a>
   <span class="sp"></span>
   <div id="sync" title="Speicherstatus"><i></i><span>Lokal</span></div>
   <button id="gear" aria-label="Einstellungen" title="Einstellungen">⚙︎</button>
 </div></nav>
 <main id="app"></main>
-<footer>Daten werden in deinem GitHub-Repository gespeichert · Zugangstoken bleibt nur in diesem Browser</footer>
+<footer>Jede Person sieht nur ihre eigenen Daten · gespeichert im privaten GitHub-Repository</footer>
 <dialog id="dlg"><div class="dl" id="dlgc"></div></dialog>
 
 <script>
@@ -223,7 +228,7 @@ function computeYear(data,y){
 //CORE-END
 
 /* ---------- Daten & Speicher ---------- */
-const LS='azeit.data', LSC='azeit.cfg', LSD='azeit.dirty';
+const LS='azeit.data', LSC='azeit.cfg', LSD='azeit.dirty', LSU='azeit.user', UF='users.json';
 const ABS=[['U','Urlaub'],['U/2','½ Urlaub'],['K','Krank'],['k.o.A.','Krank o. Attest'],['F','Feiertag']];
 const ABSN=Object.fromEntries(ABS), ACL={'U':'U','U/2':'U2','K':'K','k.o.A.':'koA','F':'Ft'};
 const MON=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
@@ -241,6 +246,8 @@ function normalize(d){
 let data=normalize(JSON.parse(ls.get(LS)||'null'));
 let cfg=Object.assign({owner:'',repo:'',branch:'main',path:'data.json',token:''},JSON.parse(ls.get(LSC)||'{}'));
 let sha=null, pushTimer=null, pushing=false, again=false;
+let user=ls.get(LSU)||null;                        // Personalnummer, 'admin' oder null
+const isUser=()=>!!user&&user!=='admin', dpath=()=>'daten/'+user+'.json';
 
 const today=()=>{const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0')};
 const nowHM=()=>{const n=new Date();return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')};
@@ -280,23 +287,24 @@ function setDay(d,patch){
 }
 function save(){
   ls.set(LS,JSON.stringify(data)); ls.set(LSD,'1');
-  if(!configured()){status('','Lokal');return}
+  if(!syncOn()){status('','Lokal');return}
   status('busy','Speichert …'); clearTimeout(pushTimer); pushTimer=setTimeout(push,1200);
 }
 
 /* ---------- GitHub-Synchronisation ---------- */
-const configured=()=>cfg.owner&&cfg.repo&&cfg.token&&cfg.path;
+const configured=()=>!!(cfg.owner&&cfg.repo&&cfg.token), syncOn=()=>configured()&&isUser();
 function status(c,t){const s=$('#sync');s.className=c;$('span',s).textContent=t;s.title=t}
 const b64e=str=>{const b=new TextEncoder().encode(str);let s='';for(let i=0;i<b.length;i+=8192)s+=String.fromCharCode.apply(null,b.subarray(i,i+8192));return btoa(s)};
 const b64d=b=>new TextDecoder().decode(Uint8Array.from(atob(b.replace(/\s/g,'')),c=>c.charCodeAt(0)));
-function api(method,body){
-  const u='https://api.github.com/repos/'+encodeURIComponent(cfg.owner)+'/'+encodeURIComponent(cfg.repo)+'/contents/'+cfg.path.split('/').map(encodeURIComponent).join('/');
+function api(method,body,path=dpath()){
+  const u='https://api.github.com/repos/'+encodeURIComponent(cfg.owner)+'/'+encodeURIComponent(cfg.repo)+'/contents/'+path.split('/').map(encodeURIComponent).join('/');
   return fetch(u+(method==='GET'?'?ref='+encodeURIComponent(cfg.branch)+'&_='+Date.now():''),{method,cache:'no-store',
     headers:{Authorization:'Bearer '+cfg.token,Accept:'application/vnd.github+json'},body:body?JSON.stringify(body):undefined});
 }
+const repoGet=()=>fetch('https://api.github.com/repos/'+encodeURIComponent(cfg.owner)+'/'+encodeURIComponent(cfg.repo),{cache:'no-store',headers:{Authorization:'Bearer '+cfg.token,Accept:'application/vnd.github+json'}});
 function ghErr(r){return r.status===401?'Token ungültig':r.status===403?'Kein Zugriff (Token-Rechte?)':r.status===404?'Repository nicht gefunden':'Fehler '+r.status}
 async function pull(){
-  if(!configured())return false;
+  if(!syncOn())return false;
   status('busy','Lädt …');
   try{
     const r=await api('GET');
@@ -314,7 +322,7 @@ async function pull(){
   }catch(e){status('err','Offline – lokal gesichert');return false}
 }
 async function push(retry){
-  if(!configured())return;
+  if(!syncOn())return;
   if(pushing){again=true;return}
   pushing=true; status('busy','Speichert …');
   try{
@@ -330,13 +338,125 @@ async function push(retry){
   if(again){again=false;push()}
 }
 document.addEventListener('visibilitychange',async()=>{
-  if(document.visibilityState==='visible'&&configured()&&ls.get(LSD)!=='1'&&!$('#dlg').open&&!/INPUT|SELECT/.test(document.activeElement.tagName)){if(await pull())render()}
+  if(document.visibilityState==='visible'&&syncOn()&&ls.get(LSD)!=='1'&&!$('#dlg').open&&!/INPUT|SELECT/.test(document.activeElement.tagName)){if(await pull())render()}
 });
 window.addEventListener('online',()=>{if(ls.get(LSD)==='1')push()});
+
+/* ---------- Benutzerkonten (users.json im Daten-Repository) ---------- */
+const u8b=u=>btoa(String.fromCharCode.apply(null,u)), bu8=b=>Uint8Array.from(atob(b),c=>c.charCodeAt(0));
+async function loadUsers(){
+  const r=await api('GET',null,UF);
+  if(r.status===200){const j=await r.json(), db=JSON.parse(b64d(j.content)); db.users=db.users||{}; return {sha:j.sha,db}}
+  if(r.status===404){const t=await repoGet(); if(t.ok)return {sha:null,db:{users:{}}}; throw new Error(ghErr(t))}
+  throw new Error(ghErr(r));
+}
+async function saveUsers(u){
+  const body={message:'Benutzer aktualisiert',content:b64e(JSON.stringify(u.db,null,1)),branch:cfg.branch}; if(u.sha)body.sha=u.sha;
+  const r=await api('PUT',body,UF);
+  if(!r.ok)throw new Error(r.status===409||r.status===422?'Gleichzeitige Änderung – bitte erneut versuchen.':ghErr(r));
+  u.sha=(await r.json()).content.sha;
+}
+async function pwHash(pw,salt){
+  const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveBits']);
+  return u8b(new Uint8Array(await crypto.subtle.deriveBits({name:'PBKDF2',salt:bu8(salt),iterations:150000,hash:'SHA-256'},k,256)));
+}
+async function mkPw(pw){const salt=u8b(crypto.getRandomValues(new Uint8Array(16)));return {salt,hash:await pwHash(pw,salt)}}
+async function checkPw(rec,pw){return !!rec&&(await pwHash(pw,rec.salt))===rec.hash}
+const netMsg=e=>e instanceof TypeError?'Keine Verbindung zu GitHub.':(e.message||'Fehler');
+const ID_RE=/^[A-Za-z0-9._-]{1,20}$/;
+async function enter(id,seed){
+  user=id; ls.set(LSU,id); data=seed?normalize(seed):blank(); ls.set(LS,JSON.stringify(data)); ls.set(LSD,seed?'1':'0'); sha=null;
+  view.year=view.month=view.calY=view.calM=null;
+  if($('#dlg').open)closeDlg(); location.hash='#/start'; await gate();
+}
+function logout(){
+  if(ls.get(LSD)==='1'&&!confirm('Es gibt Änderungen, die noch nicht auf GitHub gespeichert sind. Trotzdem abmelden?'))return;
+  [LS,LSD,LSU].forEach(ls.del); location.hash='#/start'; location.reload();
+}
+function showLogin(reg){
+  openDlg(`<h3>${reg?'Registrieren':'Anmelden'}</h3>
+    <p class="muted" style="margin:0 0 14px">${reg?'Lege dein Konto mit deiner Personalnummer und einem Passwort an.':'Melde dich mit deiner Personalnummer an.'}</p>
+    <label class="f">Personalnummer<input id="lu" autocapitalize="off" autocomplete="username" spellcheck="false" inputmode="${reg?'text':'text'}" maxlength="20"></label>
+    <label class="f" style="margin-top:10px">Passwort${reg?' (mind. 4 Zeichen)':''}<input type="password" id="lp" autocomplete="${reg?'new-password':'current-password'}"></label>
+    ${reg?'<label class="f" style="margin-top:10px">Passwort wiederholen<input type="password" id="lp2" autocomplete="new-password"></label>':''}
+    <p class="small neg" id="lm" style="margin:10px 0 0"></p>
+    <div class="row" style="margin-top:18px;justify-content:space-between"><button class="btn ghost" id="lt">${reg?'Ich habe schon ein Konto':'Neu hier? Registrieren'}</button><button class="btn" id="lo">${reg?'Konto anlegen':'Anmelden'}</button></div>`);
+  $('#lt').onclick=()=>showLogin(!reg);
+  const go=async()=>{
+    const id=$('#lu').value.trim(), pw=$('#lp').value, m=$('#lm'); m.textContent='';
+    if(!id||!pw)return m.textContent='Bitte Personalnummer und Passwort eingeben.';
+    $('#lo').disabled=true;
+    try{
+      const u=await loadUsers();
+      if(reg){
+        if(!ID_RE.test(id)||id.toLowerCase()==='admin')throw new Error('Die Personalnummer darf nur Buchstaben und Ziffern enthalten.');
+        if(pw.length<4)throw new Error('Das Passwort braucht mindestens 4 Zeichen.');
+        if(pw!==$('#lp2').value)throw new Error('Die Passwörter stimmen nicht überein.');
+        if(u.db.users[id])throw new Error('Diese Personalnummer ist bereits registriert.');
+        const first=!Object.keys(u.db.users).length;
+        u.db.users[id]=Object.assign(await mkPw(pw),{created:today()}); await saveUsers(u);
+        let seed=null;
+        if(first&&cfg.path){const r=await api('GET',null,cfg.path);
+          if(r.status===200&&confirm('Es gibt bereits erfasste Daten aus der bisherigen Einzelnutzung. Sollen sie für die Personalnummer '+id+' übernommen werden?'))seed=JSON.parse(b64d((await r.json()).content))}
+        return enter(id,seed);
+      }
+      if(id.toLowerCase()==='admin'){
+        if(u.db.admin?await checkPw(u.db.admin,pw):pw==='admin')return enter('admin');
+      }else if(await checkPw(u.db.users[id],pw))return enter(id);
+      m.textContent='Personalnummer oder Passwort falsch.';
+    }catch(e){m.textContent=netMsg(e)}
+    if($('#lo'))$('#lo').disabled=false;
+  };
+  $('#lo').onclick=go; $$('#dlgc input').forEach(i=>i.onkeydown=e=>{if(e.key==='Enter')go()}); $('#lu').focus();
+}
+async function gate(){
+  document.body.classList.toggle('admin',user==='admin'); document.body.classList.toggle('out',!user);
+  if(configured()&&user){render(); if(isUser()&&await pull())render(); else if(!isUser())status('ok','Verwaltung'); return}
+  if(user){user=null;ls.del(LSU);document.body.classList.add('out');document.body.classList.remove('admin')}
+  render(); status('','Nicht angemeldet');
+  if(configured())return showLogin();
+  if(!(await offerUnlock()))openSettings();
+}
+
+/* ---------- Verwaltung (Admin) ---------- */
+async function pAdmin(){
+  $('#app').innerHTML='<section class="hero"><h1>Verwaltung.</h1><p class="sub" id="asub">Lädt …</p></section><div id="abody"></div>';
+  let u; try{u=await loadUsers()}catch(e){$('#asub').textContent=netMsg(e);return}
+  const ids=Object.keys(u.db.users).sort((a,b)=>a.localeCompare(b,'de',{numeric:true}));
+  $('#asub').textContent=ids.length+(ids.length===1?' Benutzer':' Benutzer')+' registriert';
+  $('#abody').innerHTML=`
+    ${u.db.admin?'':'<div class="card" style="background:var(--koa-bg);color:var(--koa)"><b>Das Admin-Passwort ist noch „admin“.</b> Bitte ändere es jetzt – sonst kann jede Person mit Zugang zur Seite die Verwaltung öffnen.</div>'}
+    <div class="card"><h3>Benutzer</h3>
+      <ul class="list">${ids.map(id=>`<li><span class="x"><b>${esc(id)}</b><br><span class="note">registriert am ${u.db.users[id].created?dShort(u.db.users[id].created)+u.db.users[id].created.slice(0,4):'–'}</span></span>
+        <button class="btn ghost" data-rp="${esc(id)}">Passwort zurücksetzen</button><button class="btn danger" data-rm="${esc(id)}">Löschen</button></li>`).join('')||'<li class="muted small">Noch niemand registriert.</li>'}</ul>
+    </div>
+    <div class="card"><h3>Benutzer anlegen</h3><div class="row">
+      <label class="f">Personalnummer<input id="nu" autocapitalize="off" autocomplete="off" spellcheck="false" maxlength="20"></label>
+      <label class="f">Startpasswort (mind. 4 Zeichen)<input id="np" autocomplete="off"></label>
+      <button class="btn" id="nb">Anlegen</button></div>
+      <p class="note" style="margin:10px 0 0">Kolleginnen und Kollegen können sich auch selbst über „Registrieren“ anlegen.</p></div>
+    <div class="card"><h3>Admin-Passwort</h3><div class="row">
+      <label class="f">Neues Passwort (mind. 6 Zeichen)<input type="password" id="ap" autocomplete="new-password"></label>
+      <button class="btn sec" id="ab">Ändern</button></div></div>
+    <p class="small" id="am" style="margin:0 4px"></p>`;
+  const run=async(fn,okMsg)=>{try{await fn();await pAdmin();$('#am').textContent=okMsg;$('#am').className='small pos'}catch(e){$('#am').textContent=netMsg(e);$('#am').className='small neg'}};
+  $$('[data-rp]').forEach(b=>b.onclick=()=>{const id=b.dataset.rp, pw=prompt('Neues Passwort für '+id+' (mind. 4 Zeichen):'); if(pw==null)return;
+    run(async()=>{if(pw.length<4)throw new Error('Das Passwort braucht mindestens 4 Zeichen.');u.db.users[id]=Object.assign(u.db.users[id],await mkPw(pw));await saveUsers(u)},'Passwort für '+id+' wurde zurückgesetzt.')});
+  $$('[data-rm]').forEach(b=>b.onclick=()=>{const id=b.dataset.rm; if(!confirm('Benutzer '+id+' und alle seine Daten endgültig löschen?'))return;
+    run(async()=>{delete u.db.users[id];await saveUsers(u);
+      const p='daten/'+id+'.json', g=await api('GET',null,p); if(g.status===200)await api('DELETE',{message:'Benutzer '+id+' gelöscht',sha:(await g.json()).sha,branch:cfg.branch},p)},'Benutzer '+id+' wurde gelöscht.')});
+  $('#nb').onclick=()=>{const id=$('#nu').value.trim(), pw=$('#np').value;
+    run(async()=>{if(!ID_RE.test(id)||id.toLowerCase()==='admin')throw new Error('Die Personalnummer darf nur Buchstaben und Ziffern enthalten.');if(pw.length<4)throw new Error('Das Passwort braucht mindestens 4 Zeichen.');
+      if(u.db.users[id])throw new Error('Diese Personalnummer ist bereits registriert.');u.db.users[id]=Object.assign(await mkPw(pw),{created:today()});await saveUsers(u)},'Benutzer '+id+' wurde angelegt.')};
+  $('#ab').onclick=()=>{const pw=$('#ap').value;
+    run(async()=>{if(pw.length<6||pw==='admin')throw new Error('Das Admin-Passwort braucht mindestens 6 Zeichen.');u.db.admin=await mkPw(pw);await saveUsers(u)},'Admin-Passwort wurde geändert.')};
+}
 
 /* ---------- Router ---------- */
 const view={year:null,month:null,calY:null,calM:null};
 function render(){
+  if(!user){$('#app').innerHTML='<section class="hero"><h1>Arbeitszeit.</h1><p class="sub">Bitte melde dich an, um deine Zeiten zu sehen.</p><p style="margin-top:24px"><button class="btn" id="gl">Anmelden</button></p></section>';$('#gl').onclick=gate;return}
+  if(user==='admin'){$$('nav a.tab').forEach(a=>a.classList.toggle('on',a.classList.contains('adm')));return pAdmin()}
   const r=(location.hash.replace(/^#\//,'')||'start').split('?')[0];
   $$('nav a.tab').forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#/'+r));
   ({start:pStart,rechner:pRechner,zeiten:pZeiten,kalender:pKalender,aufgaben:pAufgaben}[r]||pStart)();
@@ -567,14 +687,14 @@ function dayDialog(d){
       <p class="note" style="margin:6px 0 0">Mit „bis“-Datum wird die Auswahl für alle Arbeitstage im Zeitraum eingetragen; Wochenenden, freie Freitage und Feiertage werden übersprungen.</p>
     </div>
     <div class="sect"><div class="t">Termine</div>
-      <ul class="list">${ev.map(e=>`<li><span class="d">${e.time?span(e)+' Uhr':'ganztägig'}</span><span class="x">${esc(e.title)}${e.rep?`<br><span class="note">${REP[e.rep]}${e.until?' bis '+dShort(e.until)+e.until.slice(0,4):''}</span>`:''}</span>${e.rep?`<button class="btn danger" data-del1="${e.id}" aria-label="Nur diesen Tag löschen">Diesen Tag löschen</button><button class="btn danger" data-del="${e.id}" aria-label="Ganze Serie löschen">Serie löschen</button>`:`<button class="btn danger" data-del="${e.id}" aria-label="Termin löschen">Löschen</button>`}</li>`).join('')||'<li class="muted small">Keine Termine</li>'}</ul>
+      <ul class="list">${ev.map(e=>`<li><span class="d">${e.time?span(e)+' Uhr':'ganztägig'}</span><span class="x">${esc(e.title)}${e.rep?`<br><span class="note">${REP[e.rep]}${e.until?' bis '+dShort(e.until)+e.until.slice(0,4):''}</span>`:''}</span>${e.rep?`<button class="btn ghost" data-ed="${e.id}">Bearbeiten</button><button class="btn danger" data-del1="${e.id}" aria-label="Nur diesen Tag löschen">Diesen Tag löschen</button><button class="btn danger" data-del="${e.id}" aria-label="Ganze Serie löschen">Serie löschen</button>`:`<button class="btn ghost" data-ed="${e.id}">Bearbeiten</button><button class="btn danger" data-del="${e.id}" aria-label="Termin löschen">Löschen</button>`}</li>`).join('')||'<li class="muted small">Keine Termine</li>'}</ul>
       <div class="row" style="margin-top:8px">
-        <label class="f" style="flex:2">Neuer Termin<input type="text" id="et" placeholder="Titel" maxlength="80"></label>
+        <label class="f" style="flex:2;min-width:100%"><span id="etl">Neuer Termin</span><input type="text" id="et" placeholder="Titel" maxlength="80"></label>
         <label class="f">Von<input type="time" id="eh"></label>
         <label class="f">Bis (optional)<input type="time" id="ee"></label>
         <label class="f">Wiederholen<select id="er"><option value="">Nie</option><option value="d">Täglich</option><option value="w">Wöchentlich</option><option value="2w">Alle 2 Wochen</option><option value="m">Monatlich</option></select></label>
         <label class="f" id="eul" hidden>Wiederholen bis (leer = ohne Ende)<input type="date" id="eu" min="${d}"></label>
-        <button class="btn sec" id="ea">Hinzufügen</button>
+        <button class="btn sec" id="ea">Hinzufügen</button><button class="btn ghost" id="ec" hidden>Abbrechen</button>
       </div>
     </div>
     <div class="row" style="margin-top:24px;justify-content:space-between"><a class="btn ghost" href="#/zeiten" id="toz">In Zeiterfassung öffnen</a><button class="btn" id="dok">Fertig</button></div>`);
@@ -589,7 +709,17 @@ function dayDialog(d){
   $$('#dlgc [data-del]').forEach(b=>b.onclick=()=>{data.events=data.events.filter(e=>e.id!==b.dataset.del);save();pKalender();dayDialog(d)});
   $('#er').onchange=()=>{$('#eul').hidden=!$('#er').value};
   $$('#dlgc [data-del1]').forEach(b=>b.onclick=()=>{const e=data.events.find(e=>e.id===b.dataset.del1);(e.ex=e.ex||[]).push(d);save();pKalender();dayDialog(d)});
-  const add=()=>{const ti=$('#et').value.trim();if(!ti)return $('#et').focus();data.events.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),date:d,title:ti,time:$('#eh').value||'',end:$('#eh').value?$('#ee').value||'':'',...($('#er').value?{rep:$('#er').value,until:$('#eu').value>=d?$('#eu').value:''}:{})});save();pKalender();dayDialog(d)};
+  let editId=null;
+  $$('#dlgc [data-ed]').forEach(b=>b.onclick=()=>{const e=data.events.find(e=>e.id===b.dataset.ed); editId=e.id;
+    $('#et').value=e.title;$('#eh').value=e.time||'';$('#ee').value=e.end||'';$('#er').value=e.rep||'';$('#eu').value=e.until||'';$('#eul').hidden=!e.rep;
+    $('#etl').textContent=e.rep?'Termin bearbeiten (gilt für die ganze Serie)':'Termin bearbeiten';$('#ea').textContent='Speichern';$('#ec').hidden=false;$('#et').focus()});
+  $('#ec').onclick=()=>dayDialog(d);
+  const add=()=>{const ti=$('#et').value.trim();if(!ti)return $('#et').focus();
+    const v={title:ti,time:$('#eh').value||'',end:$('#eh').value?$('#ee').value||'':''}, r=$('#er').value;
+    if(editId){const e=data.events.find(e=>e.id===editId);Object.assign(e,v);
+      if(r){e.rep=r;e.until=$('#eu').value>=e.date?$('#eu').value:''}else{delete e.rep;delete e.until;delete e.ex;if(!occurs(e,d))e.date=d}}
+    else data.events.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),date:d,...v,...(r?{rep:r,until:$('#eu').value>=d?$('#eu').value:''}:{})});
+    save();pKalender();dayDialog(d)};
   $('#ea').onclick=add; $('#et').onkeydown=e=>{if(e.key==='Enter')add()};
   $('#dok').onclick=closeDlg;
   $('#toz').onclick=()=>{view.year=d.slice(0,4);view.month=Number(d.slice(5,7))-1;ensureYear(view.year);closeDlg()};
@@ -632,61 +762,67 @@ function pAufgaben(){
 }
 
 /* ---------- Einstellungen ---------- */
-$('#gear').onclick=()=>{
-  const s=data.settings;
-  openDlg(`<h3>Einstellungen</h3>
-    <div class="sect"><div class="t">GitHub-Speicher</div>
-      <p class="note" style="margin:0 0 10px">Trage hier das Repository ein, in dem deine Daten liegen sollen – am besten ein <b>privates</b>. Das Token wird nur in diesem Browser gespeichert und nie hochgeladen.</p>
+function openSettings(){
+  const s=data.settings, gh=!isUser();
+  openDlg(`<h3>${user?'Einstellungen':'Einrichtung'}</h3>
+    ${user?`<div class="row" style="align-items:center;justify-content:space-between"><span>Angemeldet als <b>${esc(user==='admin'?'Admin':user)}</b></span>
+      <span>${isUser()?'<button class="btn ghost" id="spw">Passwort ändern</button>':''}<button class="btn sec" id="slo">Abmelden</button></span></div><p class="small" id="spm" style="margin:6px 0 0"></p>`:''}
+    ${gh?`<div class="sect"><div class="t">GitHub-Speicher</div>
+      <p class="note" style="margin:0 0 10px">Trage hier das <b>private</b> Repository ein, in dem die Daten aller Benutzer liegen. Das Token wird nur in diesem Browser gespeichert.</p>
       <div class="row">
         <label class="f">GitHub-Benutzername<input id="so" value="${esc(cfg.owner)}" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
         <label class="f">Repository (für Daten)<input id="sr" value="${esc(cfg.repo)}" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
         <label class="f">Branch<input id="sb" value="${esc(cfg.branch)}" autocapitalize="off" spellcheck="false"></label>
-        <label class="f">Datei<input id="sp" value="${esc(cfg.path)}" autocapitalize="off" spellcheck="false"></label>
         <label class="f" style="min-width:100%">Zugangstoken (Fine-grained, „Contents: Read and write“)<input id="stk" type="password" value="${esc(cfg.token)}" autocomplete="off" placeholder="github_pat_…"></label>
       </div>
-      <div class="row" style="margin-top:12px"><button class="btn" id="sc">Verbinden</button><button class="btn danger" id="sx">Abmelden</button><span class="small muted" id="sm"></span></div>
-    </div>
-    <div class="sect"><div class="t">Schichtrhythmus</div>
+      <div class="row" style="margin-top:12px"><button class="btn" id="sc">Verbinden</button>${configured()?'<button class="btn danger" id="sx">Gerät trennen</button>':''}<span class="small muted" id="sm"></span></div>
+    </div>`:''}
+    ${user==='admin'?`<div class="sect"><div class="t">Team-Passwort für alle Geräte</div>
+      <p class="note" style="margin:0 0 10px">Lege ein Team-Passwort fest. Die Seite erstellt daraus die Datei <b>zugang.json</b> mit den verschlüsselten Zugangsdaten. Lade sie einmalig neben die index.html ins Website-Repository hoch. Auf jedem neuen Gerät wird dann einmal das Team-Passwort abgefragt, danach die persönliche Anmeldung.</p>
+      <div class="row">
+        <label class="f" style="flex:2">Team-Passwort (mind. 10 Zeichen)<input type="password" id="zp" autocomplete="new-password"></label>
+        <button class="btn sec" id="zb">Zugangsdatei erstellen</button>
+      </div><p class="small muted" id="zm" style="margin:8px 0 0"></p>
+    </div>`:''}
+    ${isUser()?`<div class="sect"><div class="t">Schichtrhythmus</div>
       <div class="row">
         <label class="f">Montag einer bekannten Woche<input type="date" id="sa" value="${s.anchor}"></label>
         <label class="f">Schicht in dieser Woche<select id="ss"><option value="F" ${s.anchorShift==='F'?'selected':''}>Frühschicht</option><option value="S" ${s.anchorShift==='S'?'selected':''}>Spätschicht</option></select></label>
       </div><p class="note" style="margin:6px 0 0">Ab dieser Woche wechselt die Schicht wöchentlich – auch über den Jahreswechsel hinaus.</p>
     </div>
-    <div class="sect"><div class="t">Zugang auf allen Geräten</div>
-      <p class="note" style="margin:0 0 10px">Lege ein Passwort fest. Die Seite erstellt daraus die Datei <b>zugang.json</b> mit deinen verschlüsselten Zugangsdaten. Lade sie einmalig neben die index.html in dein Website-Repository hoch – danach genügt auf jedem Gerät das Passwort.</p>
-      <div class="row">
-        <label class="f" style="flex:2">Passwort (mind. 10 Zeichen)<input type="password" id="zp" autocomplete="new-password"></label>
-        <button class="btn sec" id="zb">Zugangsdatei erstellen</button>
-      </div><p class="small muted" id="zm" style="margin:8px 0 0"></p>
-    </div>
     <div class="sect"><div class="t">Sicherung</div>
       <div class="row"><button class="btn sec" id="si">Daten importieren (JSON)</button><button class="btn sec" id="se">Sicherung herunterladen</button><input type="file" id="sf" accept=".json,application/json" hidden></div>
-    </div>
+    </div>`:''}
     <div class="row" style="margin-top:24px;justify-content:flex-end"><button class="btn" id="sok">Fertig</button></div>`);
-  $('#sok').onclick=()=>{closeDlg();render()};
-  $('#sc').onclick=async()=>{
-    cfg={owner:$('#so').value.trim(),repo:$('#sr').value.trim(),branch:$('#sb').value.trim()||'main',path:$('#sp').value.trim().replace(/^\/+/,'')||'data.json',token:$('#stk').value.trim()};
+  const on=(q,f)=>{const el=$(q);if(el)el.onclick=f};
+  on('#sok',()=>{closeDlg();if(isUser())render()});
+  on('#slo',logout);
+  on('#spw',async()=>{const pw=prompt('Neues Passwort (mind. 4 Zeichen):'), m=$('#spm'); if(pw==null)return;
+    try{if(pw.length<4)throw new Error('Das Passwort braucht mindestens 4 Zeichen.');const u=await loadUsers();u.db.users[user]=Object.assign(u.db.users[user]||{created:today()},await mkPw(pw));await saveUsers(u);m.textContent='Passwort geändert.';m.className='small pos'}
+    catch(e){m.textContent=netMsg(e);m.className='small neg'}});
+  on('#sc',async()=>{
+    cfg={owner:$('#so').value.trim(),repo:$('#sr').value.trim(),branch:$('#sb').value.trim()||'main',path:cfg.path||'data.json',token:$('#stk').value.trim()};
     if(!configured())return $('#sm').textContent='Bitte alle Felder ausfüllen.';
-    ls.set(LSC,JSON.stringify(cfg)); sha=null; $('#sm').textContent='Verbinde …';
-    const fresh=!Object.keys(data.days).length&&!data.events.length; if(fresh)ls.set(LSD,'0');
-    const ok=await pull(); $('#sm').textContent=ok?'Verbunden. Daten werden automatisch gespeichert.':'Fehlgeschlagen: '+$('#sync span').textContent;
-    if(ok)render();
-  };
-  $('#sx').onclick=()=>{
-    if(ls.get(LSD)==='1'&&!confirm('Es gibt Änderungen, die noch nicht auf GitHub gespeichert sind. Trotzdem abmelden?'))return;
-    if(!confirm('Abmelden? Zugangsdaten und Daten werden von diesem Gerät entfernt. Auf GitHub bleibt alles erhalten.'))return;
-    [LS,LSC,LSD].forEach(ls.del); location.reload();
-  };
-  $('#zb').onclick=async()=>{
+    $('#sm').textContent='Verbinde …';
+    try{const t=await repoGet(); if(!t.ok)return $('#sm').textContent='Fehlgeschlagen: '+ghErr(t)}catch(e){return $('#sm').textContent='Keine Verbindung zu GitHub.'}
+    ls.set(LSC,JSON.stringify(cfg)); $('#sm').textContent='Verbunden.';
+    if(!user){closeDlg();gate()}
+  });
+  on('#sx',()=>{
+    if(!confirm('Gerät trennen? Zugangsdaten und Anmeldung werden von diesem Gerät entfernt. Auf GitHub bleibt alles erhalten.'))return;
+    [LS,LSC,LSD,LSU].forEach(ls.del); location.reload();
+  });
+  on('#zb',async()=>{
     const pw=$('#zp').value, m=$('#zm');
     if(!configured())return m.textContent='Bitte zuerst oben mit GitHub verbinden.';
-    if(pw.length<10)return m.textContent='Das Passwort braucht mindestens 10 Zeichen.';
+    if(pw.length<10)return m.textContent='Das Team-Passwort braucht mindestens 10 Zeichen.';
     try{
       const blob=await lockCfg(cfg,pw), a=document.createElement('a');
       a.href=URL.createObjectURL(new Blob([JSON.stringify(blob)],{type:'application/json'}));a.download='zugang.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
       $('#zp').value=''; m.textContent='zugang.json wurde heruntergeladen. Jetzt neben die index.html ins Website-Repository hochladen.';
     }catch(e){m.textContent='Verschlüsselung in diesem Browser nicht möglich.'}
-  };
+  });
+  if(!isUser())return;
   const sh=()=>{const v=$('#sa').value;if(!v)return;data.settings.anchor=mondayOf(v);data.settings.anchorShift=$('#ss').value;$('#sa').value=data.settings.anchor;save()};
   $('#sa').onchange=sh;$('#ss').onchange=sh;
   $('#si').onclick=()=>$('#sf').click();
@@ -696,11 +832,11 @@ $('#gear').onclick=()=>{
       data=normalize(j);save();closeDlg();render();
     }catch(x){alert('Die Datei konnte nicht gelesen werden.')}};
   $('#se').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,1)],{type:'application/json'}));a.download='arbeitszeit-sicherung-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};
-};
+}
+$('#gear').onclick=openSettings;
 
 /* ---------- Start ---------- */
 /* ---------- Passwort-Zugang (zugang.json) ---------- */
-const u8b=u=>btoa(String.fromCharCode.apply(null,u)), bu8=b=>Uint8Array.from(atob(b),c=>c.charCodeAt(0));
 async function pwKey(pw,salt,iter){
   const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);
   return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:iter,hash:'SHA-256'},k,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
@@ -715,30 +851,31 @@ async function unlockCfg(b,pw){
   return JSON.parse(new TextDecoder().decode(pt));
 }
 async function offerUnlock(){
-  let blob; try{const r=await fetch('zugang.json?_='+Date.now(),{cache:'no-store'});if(!r.ok)return;blob=await r.json();if(!blob.ct)return}catch(e){return}
-  openDlg(`<h3>Anmelden</h3>
-    <p class="muted" style="margin:0 0 14px">Gib dein Passwort ein, um deine Daten zu laden.</p>
-    <label class="f">Passwort<input type="password" id="up" autocomplete="current-password"></label>
-    <label style="display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15px"><input type="checkbox" id="ur" style="width:22px;height:22px;min-height:0;flex:none"> Auf diesem Gerät angemeldet bleiben</label>
+  let blob; try{const r=await fetch('zugang.json?_='+Date.now(),{cache:'no-store'});if(!r.ok)return false;blob=await r.json();if(!blob.ct)return false}catch(e){return false}
+  openDlg(`<h3>Team-Passwort</h3>
+    <p class="muted" style="margin:0 0 14px">Dieses Gerät ist noch nicht freigeschaltet. Gib einmalig das Team-Passwort ein.</p>
+    <label class="f">Team-Passwort<input type="password" id="up" autocomplete="current-password"></label>
+    <label style="display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15px"><input type="checkbox" id="ur" style="width:22px;height:22px;min-height:0;flex:none"> Dieses Gerät dauerhaft freischalten</label>
     <p class="note" style="margin:6px 0 0">Nur auf eigenen Geräten ankreuzen. Ohne Haken wird beim Schließen des Browser-Tabs alles wieder von diesem Gerät entfernt.</p>
     <p class="small neg" id="um" style="margin:10px 0 0"></p>
-    <div class="row" style="margin-top:18px;justify-content:flex-end"><button class="btn" id="uo">Anmelden</button></div>`);
+    <div class="row" style="margin-top:18px;justify-content:flex-end"><button class="btn" id="uo">Weiter</button></div>`);
   const go=async()=>{
     $('#um').textContent=''; $('#uo').disabled=true;
     try{
       const c=await unlockCfg(blob,$('#up').value);
       try{store=$('#ur').checked?localStorage:sessionStorage}catch(e){}
       cfg=Object.assign(cfg,c); ls.set(LSC,JSON.stringify(cfg)); ls.set(LSD,'0'); sha=null;
-      const ok=await pull();
-      if(ok){closeDlg();render()} else $('#um').textContent='Passwort stimmt, aber GitHub meldet: '+$('#sync span').textContent;
+      const t=await repoGet().catch(()=>null);
+      if(t&&t.ok){closeDlg();return gate()}
+      $('#um').textContent='Passwort stimmt, aber GitHub meldet: '+(t?ghErr(t):'keine Verbindung');
     }catch(e){$('#um').textContent='Falsches Passwort.'}
-    $('#uo').disabled=false;
+    if($('#uo'))$('#uo').disabled=false;
   };
   $('#uo').onclick=go; $('#up').onkeydown=e=>{if(e.key==='Enter')go()}; $('#up').focus();
+  return true;
 }
 
-render();
-if(configured())pull().then(ok=>{if(ok)render()}); else{status('','Lokal');offerUnlock()}
+gate();
 </script>
 </body>
 </html>
