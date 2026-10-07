@@ -18,7 +18,11 @@
    "sollFr": 8
   }
  },
- "days": {},
+ "days": {
+  "2026-10-20": {
+   "a": "K"
+  }
+ },
  "events": [
   {
    "id": "muxq5xjxiz5",
