@@ -13,6 +13,16 @@
   }
  },
  "days": {},
- "events": [],
+ "events": [
+  {
+   "id": "muxq5xjxiz5",
+   "date": "2026-05-21",
+   "title": "BR-Sitzung",
+   "time": "13:00",
+   "end": "15:30",
+   "rep": "w",
+   "until": ""
+  }
+ ],
  "todos": []
 }
