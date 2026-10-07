@@ -229,7 +229,9 @@ const ABSN=Object.fromEntries(ABS), ACL={'U':'U','U/2':'U2','K':'K','k.o.A.':'ko
 const MON=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 const DOW=['Mo','Di','Mi','Do','Fr','Sa','So'], DOWL=['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
 const SHN={F:'Frühschicht',S:'Spätschicht'};
-const ls={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+// Speicherort: dauerhaft (localStorage) oder nur für diese Sitzung (sessionStorage, z. B. fremder PC)
+let store=null; try{store=sessionStorage.getItem('azeit.cfg')?sessionStorage:localStorage}catch(e){}
+const ls={get(k){try{return store.getItem(k)}catch(e){return null}},set(k,v){try{store.setItem(k,v)}catch(e){}},del(k){try{localStorage.removeItem(k);sessionStorage.removeItem(k)}catch(e){}}};
 function blank(){return {version:1,settings:{anchor:'2026-01-05',anchorShift:'S'},years:{'2026':{startGleitzeit:0,urlaub:30,sollMoDo:8.25,sollFr:8}},days:{},events:[],todos:[]}}
 function normalize(d){
   const b=blank(); if(!d||typeof d!=='object')return b;
@@ -642,13 +644,20 @@ $('#gear').onclick=()=>{
         <label class="f">Datei<input id="sp" value="${esc(cfg.path)}" autocapitalize="off" spellcheck="false"></label>
         <label class="f" style="min-width:100%">Zugangstoken (Fine-grained, „Contents: Read and write“)<input id="stk" type="password" value="${esc(cfg.token)}" autocomplete="off" placeholder="github_pat_…"></label>
       </div>
-      <div class="row" style="margin-top:12px"><button class="btn" id="sc">Verbinden</button><button class="btn danger" id="sx">Trennen</button><span class="small muted" id="sm"></span></div>
+      <div class="row" style="margin-top:12px"><button class="btn" id="sc">Verbinden</button><button class="btn danger" id="sx">Abmelden</button><span class="small muted" id="sm"></span></div>
     </div>
     <div class="sect"><div class="t">Schichtrhythmus</div>
       <div class="row">
         <label class="f">Montag einer bekannten Woche<input type="date" id="sa" value="${s.anchor}"></label>
         <label class="f">Schicht in dieser Woche<select id="ss"><option value="F" ${s.anchorShift==='F'?'selected':''}>Frühschicht</option><option value="S" ${s.anchorShift==='S'?'selected':''}>Spätschicht</option></select></label>
       </div><p class="note" style="margin:6px 0 0">Ab dieser Woche wechselt die Schicht wöchentlich – auch über den Jahreswechsel hinaus.</p>
+    </div>
+    <div class="sect"><div class="t">Zugang auf allen Geräten</div>
+      <p class="note" style="margin:0 0 10px">Lege ein Passwort fest. Die Seite erstellt daraus die Datei <b>zugang.json</b> mit deinen verschlüsselten Zugangsdaten. Lade sie einmalig neben die index.html in dein Website-Repository hoch – danach genügt auf jedem Gerät das Passwort.</p>
+      <div class="row">
+        <label class="f" style="flex:2">Passwort (mind. 10 Zeichen)<input type="password" id="zp" autocomplete="new-password"></label>
+        <button class="btn sec" id="zb">Zugangsdatei erstellen</button>
+      </div><p class="small muted" id="zm" style="margin:8px 0 0"></p>
     </div>
     <div class="sect"><div class="t">Sicherung</div>
       <div class="row"><button class="btn sec" id="si">Daten importieren (JSON)</button><button class="btn sec" id="se">Sicherung herunterladen</button><input type="file" id="sf" accept=".json,application/json" hidden></div>
@@ -663,7 +672,21 @@ $('#gear').onclick=()=>{
     const ok=await pull(); $('#sm').textContent=ok?'Verbunden. Daten werden automatisch gespeichert.':'Fehlgeschlagen: '+$('#sync span').textContent;
     if(ok)render();
   };
-  $('#sx').onclick=()=>{cfg.token='';ls.set(LSC,JSON.stringify(cfg));$('#stk').value='';sha=null;status('','Lokal');$('#sm').textContent='Token aus diesem Browser entfernt.'};
+  $('#sx').onclick=()=>{
+    if(ls.get(LSD)==='1'&&!confirm('Es gibt Änderungen, die noch nicht auf GitHub gespeichert sind. Trotzdem abmelden?'))return;
+    if(!confirm('Abmelden? Zugangsdaten und Daten werden von diesem Gerät entfernt. Auf GitHub bleibt alles erhalten.'))return;
+    [LS,LSC,LSD].forEach(ls.del); location.reload();
+  };
+  $('#zb').onclick=async()=>{
+    const pw=$('#zp').value, m=$('#zm');
+    if(!configured())return m.textContent='Bitte zuerst oben mit GitHub verbinden.';
+    if(pw.length<10)return m.textContent='Das Passwort braucht mindestens 10 Zeichen.';
+    try{
+      const blob=await lockCfg(cfg,pw), a=document.createElement('a');
+      a.href=URL.createObjectURL(new Blob([JSON.stringify(blob)],{type:'application/json'}));a.download='zugang.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+      $('#zp').value=''; m.textContent='zugang.json wurde heruntergeladen. Jetzt neben die index.html ins Website-Repository hochladen.';
+    }catch(e){m.textContent='Verschlüsselung in diesem Browser nicht möglich.'}
+  };
   const sh=()=>{const v=$('#sa').value;if(!v)return;data.settings.anchor=mondayOf(v);data.settings.anchorShift=$('#ss').value;$('#sa').value=data.settings.anchor;save()};
   $('#sa').onchange=sh;$('#ss').onchange=sh;
   $('#si').onclick=()=>$('#sf').click();
@@ -676,8 +699,46 @@ $('#gear').onclick=()=>{
 };
 
 /* ---------- Start ---------- */
+/* ---------- Passwort-Zugang (zugang.json) ---------- */
+const u8b=u=>btoa(String.fromCharCode.apply(null,u)), bu8=b=>Uint8Array.from(atob(b),c=>c.charCodeAt(0));
+async function pwKey(pw,salt,iter){
+  const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:iter,hash:'SHA-256'},k,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+}
+async function lockCfg(c,pw){
+  const salt=crypto.getRandomValues(new Uint8Array(16)), iv=crypto.getRandomValues(new Uint8Array(12)), iter=600000;
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},await pwKey(pw,salt,iter),new TextEncoder().encode(JSON.stringify(c)));
+  return {v:1,iter,salt:u8b(salt),iv:u8b(iv),ct:u8b(new Uint8Array(ct))};
+}
+async function unlockCfg(b,pw){
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:bu8(b.iv)},await pwKey(pw,bu8(b.salt),b.iter),bu8(b.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+async function offerUnlock(){
+  let blob; try{const r=await fetch('zugang.json?_='+Date.now(),{cache:'no-store'});if(!r.ok)return;blob=await r.json();if(!blob.ct)return}catch(e){return}
+  openDlg(`<h3>Anmelden</h3>
+    <p class="muted" style="margin:0 0 14px">Gib dein Passwort ein, um deine Daten zu laden.</p>
+    <label class="f">Passwort<input type="password" id="up" autocomplete="current-password"></label>
+    <label style="display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15px"><input type="checkbox" id="ur" style="width:22px;height:22px;min-height:0;flex:none"> Auf diesem Gerät angemeldet bleiben</label>
+    <p class="note" style="margin:6px 0 0">Nur auf eigenen Geräten ankreuzen. Ohne Haken wird beim Schließen des Browser-Tabs alles wieder von diesem Gerät entfernt.</p>
+    <p class="small neg" id="um" style="margin:10px 0 0"></p>
+    <div class="row" style="margin-top:18px;justify-content:flex-end"><button class="btn" id="uo">Anmelden</button></div>`);
+  const go=async()=>{
+    $('#um').textContent=''; $('#uo').disabled=true;
+    try{
+      const c=await unlockCfg(blob,$('#up').value);
+      try{store=$('#ur').checked?localStorage:sessionStorage}catch(e){}
+      cfg=Object.assign(cfg,c); ls.set(LSC,JSON.stringify(cfg)); ls.set(LSD,'0'); sha=null;
+      const ok=await pull();
+      if(ok){closeDlg();render()} else $('#um').textContent='Passwort stimmt, aber GitHub meldet: '+$('#sync span').textContent;
+    }catch(e){$('#um').textContent='Falsches Passwort.'}
+    $('#uo').disabled=false;
+  };
+  $('#uo').onclick=go; $('#up').onkeydown=e=>{if(e.key==='Enter')go()}; $('#up').focus();
+}
+
 render();
-if(configured())pull().then(ok=>{if(ok)render()}); else status('','Lokal');
+if(configured())pull().then(ok=>{if(ok)render()}); else{status('','Lokal');offerUnlock()}
 </script>
 </body>
 </html>
