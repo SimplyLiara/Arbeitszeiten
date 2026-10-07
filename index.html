@@ -681,15 +681,16 @@ function pKalender(){
   $('#ct').onclick=()=>{view.calY=null;pKalender()};
   $$('.day').forEach(b=>b.onclick=()=>dayDialog(b.dataset.d));
 }
-function dayDialog(d){
+function dayDialog(d,msg,keepTo){
   const i=dayInfo(d), a=i.e.a||'', ev=eventsOn(d);
   openDlg(`
     <p class="eyebrow" style="font-size:14px">${i.soll>0?SHN[i.sh]+' · Soll '+f2(i.soll)+' Std.':'Kein Arbeitstag'}${i.e.s?' · '+i.e.s+(i.e.e?'–'+i.e.e:''):''}</p>
     <h3>${dLong(d)}</h3>
     <div class="sect"><div class="t">Abwesenheit</div>
       <div class="pills"><button class="pill ${a?'':'on'}" data-a="">Keine</button>${ABS.map(x=>`<button class="pill ${a===x[0]?'on':''}" data-a="${x[0]}">${x[1]}</button>`).join('')}</div>
-      <label class="f" style="margin-top:12px">Zeitraum bis (optional)<input type="date" id="dto" min="${d}"></label>
-      <p class="note" style="margin:6px 0 0">Mit „bis“-Datum wird die Auswahl für alle Arbeitstage im Zeitraum eingetragen; Wochenenden, freie Freitage und Feiertage werden übersprungen.</p>
+      <label class="f" style="margin-top:12px">Zeitraum bis (optional)<input type="date" id="dto" min="${d}" value="${keepTo||''}"></label>
+      ${msg?`<p class="small pos" style="margin:8px 0 0"><b>${msg}</b></p>`:''}
+      <p class="note" style="margin:6px 0 0">Für mehrere Tage: Abwesenheit wählen und das „bis“-Datum setzen – die Reihenfolge ist egal. Wochenenden, freie Freitage und Feiertage werden übersprungen.</p>
     </div>
     <div class="sect"><div class="t">Termine</div>
       <ul class="list">${ev.map(e=>`<li><span class="d">${e.time?span(e)+' Uhr':'ganztägig'}</span><span class="x">${esc(e.title)}${e.rep?`<br><span class="note">${REP[e.rep]}${e.until?' bis '+dShort(e.until)+e.until.slice(0,4):''}</span>`:''}</span>${e.rep?`<button class="btn ghost" data-ed="${e.id}">Bearbeiten</button><button class="btn danger" data-del1="${e.id}" aria-label="Nur diesen Tag löschen">Diesen Tag löschen</button><button class="btn danger" data-del="${e.id}" aria-label="Ganze Serie löschen">Serie löschen</button>`:`<button class="btn ghost" data-ed="${e.id}">Bearbeiten</button><button class="btn danger" data-del="${e.id}" aria-label="Termin löschen">Löschen</button>`}</li>`).join('')||'<li class="muted small">Keine Termine</li>'}</ul>
@@ -703,14 +704,19 @@ function dayDialog(d){
       </div>
     </div>
     <div class="row" style="margin-top:24px;justify-content:space-between"><a class="btn ghost" href="#/zeiten" id="toz">In Zeiterfassung öffnen</a><button class="btn" id="dok">Fertig</button></div>`);
+  const range=(v,to)=>{
+    if((pd(to)-pd(d))/DAY>366)return alert('Zeitraum ist zu lang.');
+    let n=0;
+    for(let x=d;x<=to;x=addDays(x,1)){const j=dayInfo(x);if(x!==d&&(sollOf(x,ensureYear(x.slice(0,4)),data.settings)===0||j.e.a==='F'))continue;setDay(x,{a:v});n++}
+    if(to.slice(0,7)!==d.slice(0,7)){view.calY=Number(d.slice(0,4));view.calM=Number(d.slice(5,7))-1}
+    pKalender(); dayDialog(d,(v?ABSN[v]+' eingetragen':'Abwesenheit entfernt')+' für '+n+(n===1?' Tag':' Tage')+' bis '+dShort(to)+to.slice(0,4)+'.',to);
+  };
   $$('#dlgc [data-a]').forEach(b=>b.onclick=()=>{
     const to=$('#dto').value, v=b.dataset.a;
-    if(to&&to>=d){
-      if((pd(to)-pd(d))/DAY>366)return alert('Zeitraum ist zu lang.');
-      for(let x=d;x<=to;x=addDays(x,1)){const j=dayInfo(x);if(x!==d&&(sollOf(x,ensureYear(x.slice(0,4)),data.settings)===0||j.e.a==='F'))continue;setDay(x,{a:v})}
-    }else setDay(d,{a:v});
-    pKalender(); dayDialog(d);
+    if(to&&to>d)return range(v,to);
+    setDay(d,{a:v}); pKalender(); dayDialog(d);
   });
+  $('#dto').onchange=()=>{const to=$('#dto').value, cur=(data.days[d]||{}).a; if(to&&to>d&&cur)range(cur,to)};
   $$('#dlgc [data-del]').forEach(b=>b.onclick=()=>{data.events=data.events.filter(e=>e.id!==b.dataset.del);save();pKalender();dayDialog(d)});
   $('#er').onchange=()=>{$('#eul').hidden=!$('#er').value};
   $$('#dlgc [data-del1]').forEach(b=>b.onclick=()=>{const e=data.events.find(e=>e.id===b.dataset.del1);(e.ex=e.ex||[]).push(d);save();pKalender();dayDialog(d)});
