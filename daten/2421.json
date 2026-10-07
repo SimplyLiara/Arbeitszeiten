@@ -1,0 +1,18 @@
+{
+ "version": 1,
+ "settings": {
+  "anchor": "2026-01-05",
+  "anchorShift": "S"
+ },
+ "years": {
+  "2026": {
+   "startGleitzeit": 0,
+   "urlaub": 30,
+   "sollMoDo": 8.25,
+   "sollFr": 8
+  }
+ },
+ "days": {},
+ "events": [],
+ "todos": []
+}
