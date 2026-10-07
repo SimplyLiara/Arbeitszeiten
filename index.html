@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<title>Arbeitszeit</title>
+<style>
+:root{
+  --bg:#f5f5f7; --card:#fff; --text:#1d1d1f; --muted:#6e6e73; --line:#d2d2d7; --soft:#e8e8ed;
+  --blue:#0071e3; --blue-h:#0077ed; --nav:rgba(251,251,253,.8);
+  --early:#b25000; --early-bg:#fff1dc; --late:#5e35b1; --late-bg:#ece6fb;
+  --u:#1a7f37; --u-bg:#dff5e3; --k:#c9252d; --k-bg:#fde3e4; --koa:#a85a00; --koa-bg:#ffe9cc; --f:#48484a; --f-bg:#e5e5ea;
+  --ev:#0071e3; --ev-bg:#e1efff; --pos:#1a7f37; --neg:#c9252d;
+  --r:18px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#000; --card:#1c1c1e; --text:#f5f5f7; --muted:#a1a1a6; --line:#3a3a3c; --soft:#2c2c2e;
+    --blue:#2997ff; --blue-h:#47a6ff; --nav:rgba(22,22,23,.8);
+    --early:#ffb340; --early-bg:#3a2a10; --late:#b79cff; --late-bg:#2a2140;
+    --u:#4cd964; --u-bg:#12331b; --k:#ff6961; --k-bg:#3d1616; --koa:#ffb340; --koa-bg:#3a2a10; --f:#c7c7cc; --f-bg:#2c2c2e;
+    --ev:#64b5ff; --ev-bg:#0f2a45; --pos:#4cd964; --neg:#ff6961;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",Helvetica,Arial,sans-serif;
+  font-size:17px;line-height:1.47;letter-spacing:-.022em;-webkit-font-smoothing:antialiased}
+a{color:var(--blue);text-decoration:none}
+button,input,select{font:inherit;color:inherit;letter-spacing:inherit}
+
+/* Navigation */
+nav{position:sticky;top:0;z-index:20;background:var(--nav);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--soft)}
+nav .in{max-width:1024px;margin:0 auto;padding:0 16px;height:48px;display:flex;align-items:center;gap:4px}
+nav a.tab{font-size:13px;color:var(--text);opacity:.8;padding:6px 10px;border-radius:980px;white-space:nowrap}
+nav a.tab:hover{opacity:1}
+nav a.tab.on{opacity:1;font-weight:600;background:var(--soft)}
+nav .sp{flex:1}
+#sync{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;white-space:nowrap}
+#sync i{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+#sync.ok i{background:var(--pos)} #sync.busy i{background:#ff9f0a} #sync.err i{background:var(--neg)}
+#gear{border:0;background:none;cursor:pointer;font-size:18px;padding:6px 4px 6px 8px;opacity:.8;line-height:1}
+@media (max-width:520px){#sync span{display:none} nav a.tab{padding:6px 8px}}
+
+main{max-width:1024px;margin:0 auto;padding:0 16px 80px}
+.hero{text-align:center;padding:56px 0 36px}
+.eyebrow{font-size:17px;font-weight:600;color:var(--muted);margin:0 0 6px}
+h1{font-size:clamp(40px,8vw,72px);line-height:1.05;font-weight:600;letter-spacing:-.03em;margin:0}
+.hero p.sub{font-size:clamp(19px,2.6vw,24px);color:var(--muted);margin:14px auto 0;max-width:640px;line-height:1.3}
+h2{font-size:clamp(28px,4.5vw,40px);line-height:1.1;font-weight:600;letter-spacing:-.025em;margin:48px 0 18px}
+h3{font-size:21px;font-weight:600;margin:0 0 12px;letter-spacing:-.02em}
+.card{background:var(--card);border-radius:var(--r);padding:24px;margin-bottom:16px}
+.grid{display:grid;gap:16px}
+.g4{grid-template-columns:repeat(4,1fr)} .g2{grid-template-columns:repeat(2,1fr)}
+@media (max-width:760px){.g4{grid-template-columns:repeat(2,1fr)} .g2{grid-template-columns:1fr}}
+.grid .card{margin:0}
+.stat .l{font-size:14px;color:var(--muted)}
+.stat .v{font-size:clamp(28px,5vw,40px);font-weight:600;letter-spacing:-.03em;line-height:1.15;margin-top:4px;font-variant-numeric:tabular-nums}
+.stat .s{font-size:13px;color:var(--muted)}
+.pos{color:var(--pos)} .neg{color:var(--neg)} .muted{color:var(--muted)} .small{font-size:14px}
+
+.btn{display:inline-block;border:0;cursor:pointer;background:var(--blue);color:#fff;border-radius:980px;padding:9px 18px;font-size:15px;white-space:nowrap}
+.btn:hover{background:var(--blue-h)}
+.btn.sec{background:var(--soft);color:var(--text)}
+.btn.ghost{background:none;color:var(--blue);padding:9px 8px}
+.btn.danger{background:none;color:var(--neg);padding:9px 8px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--muted);flex:1;min-width:120px}
+input,select{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:17px;min-height:44px;width:100%}
+input:focus,select:focus,button:focus-visible,a:focus-visible{outline:3px solid color-mix(in srgb,var(--blue) 45%,transparent);outline-offset:1px;border-color:var(--blue)}
+.pills{display:flex;gap:6px;flex-wrap:wrap}
+.pill{border:0;cursor:pointer;background:var(--soft);border-radius:980px;padding:7px 14px;font-size:14px}
+.pill.on{background:var(--text);color:var(--bg)}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.pills.nowrap{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}
+.pills.nowrap .pill{white-space:nowrap}
+
+.badge{display:inline-block;border-radius:980px;padding:2px 9px;font-size:12px;font-weight:600;white-space:nowrap}
+.b-F{background:var(--early-bg);color:var(--early)} .b-S{background:var(--late-bg);color:var(--late)} .b-0{background:var(--soft);color:var(--muted)}
+.a-U,.a-U2{background:var(--u-bg);color:var(--u)} .a-K{background:var(--k-bg);color:var(--k)} .a-koA{background:var(--koa-bg);color:var(--koa)} .a-Ft{background:var(--f-bg);color:var(--f)}
+.b-ev{background:var(--ev-bg);color:var(--ev)}
+
+/* Tabellen */
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th{font-size:12px;font-weight:600;color:var(--muted);text-align:right;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:7px 10px;border-bottom:1px solid var(--soft);text-align:right;font-size:15px;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+tr.sum td{font-weight:600;border-top:1px solid var(--line);border-bottom:0}
+table.days{min-width:860px}
+table.days th:first-child,table.days td:first-child{position:sticky;left:0;background:var(--card);z-index:1}
+table.days td input,table.days td select{min-height:36px;padding:5px 8px;font-size:15px;border-radius:9px;width:100%}
+table.days td.in{padding:4px 5px}
+table.days tr.we td{color:var(--muted)} table.days tr.we td:first-child{background:var(--card)}
+table.days tr.today td:first-child{font-weight:700;color:var(--blue)}
+table.days th.l,table.days td.l{text-align:left}
+
+/* Kalender */
+.calhead{display:flex;align-items:center;gap:8px;margin:36px 0 14px;flex-wrap:wrap}
+.calhead h2{margin:0;flex:1;min-width:0}
+.circ{width:36px;height:36px;border-radius:50%;border:0;background:var(--soft);cursor:pointer;font-size:18px;line-height:1}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.cal .dow{font-size:12px;font-weight:600;color:var(--muted);text-align:center;padding:4px 0}
+.day{background:var(--card);border-radius:14px;min-height:96px;padding:8px;border:2px solid transparent;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:4px;overflow:hidden;width:100%}
+.day:hover{border-color:var(--line)}
+.day.off{background:color-mix(in srgb,var(--card) 55%,var(--bg))}
+.day.today{border-color:var(--blue)}
+.day .n{display:flex;justify-content:space-between;align-items:center;font-size:15px;font-weight:600}
+.day.off .n{color:var(--muted)}
+.day .badge{align-self:flex-start;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.day.abs-U,.day.abs-U2{background:var(--u-bg)} .day.abs-K{background:var(--k-bg)} .day.abs-koA{background:var(--koa-bg)} .day.abs-Ft{background:var(--f-bg)}
+.sh{font-size:11px;font-weight:700;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 0}
+@media (max-width:640px){
+  .cal{gap:3px} .day{min-height:68px;padding:5px 4px;border-radius:10px}
+  .day .n{font-size:13px} .sh{width:16px;height:16px;font-size:9px}
+  .day .badge{font-size:10px;padding:1px 5px}
+  .card{padding:18px}
+}
+
+dialog{border:0;border-radius:22px;padding:0;background:var(--card);color:var(--text);width:min(560px,calc(100vw - 24px));max-height:calc(100dvh - 24px)}
+dialog::backdrop{background:rgba(0,0,0,.45);backdrop-filter:blur(4px)}
+dialog .dl{padding:24px;overflow-y:auto}
+dialog h3{font-size:24px}
+.sect{margin-top:22px}
+.sect>.t{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+ul.list{list-style:none;margin:0;padding:0}
+ul.list li{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--soft)}
+ul.list li:last-child{border-bottom:0}
+ul.list .d{font-size:13px;color:var(--muted);min-width:92px}
+ul.list .x{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+details summary{cursor:pointer;color:var(--blue);font-size:15px}
+.note{font-size:13px;color:var(--muted);line-height:1.4}
+footer{text-align:center;font-size:12px;color:var(--muted);padding:0 16px 40px}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <a class="tab" href="#/start">Start</a>
+  <a class="tab" href="#/rechner">Rechner</a>
+  <a class="tab" href="#/zeiten">Zeiterfassung</a>
+  <a class="tab" href="#/kalender">Kalender</a>
+  <span class="sp"></span>
+  <div id="sync" title="Speicherstatus"><i></i><span>Lokal</span></div>
+  <button id="gear" aria-label="Einstellungen" title="Einstellungen">⚙︎</button>
+</div></nav>
+<main id="app"></main>
+<footer>Daten werden in deinem GitHub-Repository gespeichert · Zugangstoken bleibt nur in diesem Browser</footer>
+<dialog id="dlg"><div class="dl" id="dlgc"></div></dialog>
+
+<script>
+"use strict";
+//CORE-START  (Rechenlogik – entspricht den Formeln der Excel-Datei)
+const DAY=864e5;
+const pd=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(Date.UTC(y,m-1,d))};
+const toIso=d=>d.toISOString().slice(0,10);
+const addDays=(s,n)=>toIso(new Date(pd(s).getTime()+n*DAY));
+const wd=s=>(pd(s).getUTCDay()+6)%7;               // 0 = Montag
+const mondayOf=s=>addDays(s,-wd(s));
+const mins=t=>{const[h,m]=t.split(':').map(Number);return h*60+m};
+// Schicht wechselt wochenweise ab dem Anker-Montag
+function shiftOf(s,st){
+  const w=Math.round((pd(mondayOf(s))-pd(mondayOf(st.anchor)))/DAY/7);
+  const even=((w%2)+2)%2===0, a=st.anchorShift;
+  return even?a:(a==='S'?'F':'S');
+}
+function sollOf(s,ys,st){
+  const w=wd(s);
+  if(w>4)return 0;
+  if(w===4)return shiftOf(s,st)==='F'?ys.sollFr:0;   // Freitag nur in Frühschichtwochen
+  return ys.sollMoDo;
+}
+function workedOf(e){
+  if(!e||!e.s||!e.e)return 0;
+  return Math.max(0,((mins(e.e)-mins(e.s)+1440)%1440)/60-0.5-(Number(e.p)||0)/60); // 30 Min. Pause fest
+}
+function istOf(e,soll){
+  const a=e&&e.a;
+  if(a==='K'||a==='k.o.A.'||a==='U'||a==='F')return soll;
+  if(a==='U/2')return soll/2+workedOf(e);
+  return workedOf(e);
+}
+function computeYear(data,y){
+  const ys=data.years[y], st=data.settings;
+  const rows=[], months=[];
+  for(let m=0;m<12;m++)months.push({ist:0,soll:0,gz:0,u:0,k:0,koa:0});
+  let cum=Number(ys.startGleitzeit)||0;
+  const tot={ist:0,soll:0,gz:0,u:0,k:0,koa:0};
+  for(let d=y+'-01-01';d.slice(0,4)==y;d=addDays(d,1)){
+    const e=data.days[d]||{}, soll=sollOf(d,ys,st), ist=istOf(e,soll);
+    const gz=(!e.a&&!e.s&&!e.e)?0:ist-soll;
+    cum+=gz+(Number(e.k)||0);
+    const M=months[Number(d.slice(5,7))-1];
+    M.ist+=ist;M.soll+=soll;M.gz+=gz;
+    if(e.a==='U')M.u+=1; if(e.a==='U/2')M.u+=.5; if(e.a==='K')M.k+=1; if(e.a==='k.o.A.')M.koa+=1;
+    rows.push({d,shift:shiftOf(d,st),soll,ist,gz,cum});
+  }
+  for(const M of months)for(const k in tot)tot[k]+=M[k];
+  return {rows,months,tot,end:cum,rest:(Number(ys.urlaub)||0)-tot.u};
+}
+//CORE-END
+
+/* ---------- Daten & Speicher ---------- */
+const LS='azeit.data', LSC='azeit.cfg', LSD='azeit.dirty';
+const ABS=[['U','Urlaub'],['U/2','½ Urlaub'],['K','Krank'],['k.o.A.','Krank o. Attest'],['F','Feiertag']];
+const ABSN=Object.fromEntries(ABS), ACL={'U':'U','U/2':'U2','K':'K','k.o.A.':'koA','F':'Ft'};
+const MON=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+const DOW=['Mo','Di','Mi','Do','Fr','Sa','So'], DOWL=['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
+const SHN={F:'Frühschicht',S:'Spätschicht'};
+const ls={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+function blank(){return {version:1,settings:{anchor:'2026-01-05',anchorShift:'S'},years:{'2026':{startGleitzeit:0,urlaub:30,sollMoDo:8.25,sollFr:8}},days:{},events:[]}}
+function normalize(d){
+  const b=blank(); if(!d||typeof d!=='object')return b;
+  d.settings=Object.assign(b.settings,d.settings||{}); d.years=d.years&&Object.keys(d.years).length?d.years:b.years;
+  d.days=d.days||{}; d.events=Array.isArray(d.events)?d.events:[]; d.version=1; return d;
+}
+let data=normalize(JSON.parse(ls.get(LS)||'null'));
+let cfg=Object.assign({owner:'',repo:'',branch:'main',path:'data.json',token:''},JSON.parse(ls.get(LSC)||'{}'));
+let sha=null, pushTimer=null, pushing=false, again=false;
+
+const today=()=>{const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0')};
+const nowHM=()=>{const n=new Date();return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')};
+const f2=n=>(Math.abs(n)<.005?0:n).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const sg=n=>(n>=.005?'+':n<=-.005?'−':'')+f2(Math.abs(n));
+const cls=n=>n>=.005?'pos':n<=-.005?'neg':'';
+const hm=h=>{const m=Math.round(Math.abs(h)*60);return (h<0?'−':'')+Math.floor(m/60)+':'+String(m%60).padStart(2,'0')};
+const dnum=n=>Number(n).toLocaleString('de-DE');
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const dShort=s=>s.slice(8,10)+'.'+s.slice(5,7)+'.';
+const dLong=s=>DOWL[wd(s)]+', '+Number(s.slice(8,10))+'. '+MON[Number(s.slice(5,7))-1]+' '+s.slice(0,4);
+function kw(s){const d=pd(s);d.setUTCDate(d.getUTCDate()+3-wd(s));const j=new Date(Date.UTC(d.getUTCFullYear(),0,4));return 1+Math.round(((d-j)/DAY-3+((j.getUTCDay()+6)%7))/7)}
+const $=(q,el=document)=>el.querySelector(q), $$=(q,el=document)=>[...el.querySelectorAll(q)];
+
+function ensureYear(y){
+  y=String(y); if(data.years[y])return data.years[y];
+  const p=data.years[String(y-1)];
+  data.years[y]=p?{startGleitzeit:Math.round(computeYear(data,String(y-1)).end*100)/100,urlaub:p.urlaub,sollMoDo:p.sollMoDo,sollFr:p.sollFr}
+                 :{startGleitzeit:0,urlaub:30,sollMoDo:8.25,sollFr:8};
+  return data.years[y];
+}
+function setDay(d,patch){
+  ensureYear(d.slice(0,4));
+  const e=Object.assign({},data.days[d]||{},patch);
+  for(const k of Object.keys(e))if(e[k]===''||e[k]==null||(typeof e[k]==='number'&&(!isFinite(e[k])||e[k]===0)))delete e[k];
+  if(Object.keys(e).length)data.days[d]=e; else delete data.days[d];
+  save();
+}
+function save(){
+  ls.set(LS,JSON.stringify(data)); ls.set(LSD,'1');
+  if(!configured()){status('','Lokal');return}
+  status('busy','Speichert …'); clearTimeout(pushTimer); pushTimer=setTimeout(push,1200);
+}
+
+/* ---------- GitHub-Synchronisation ---------- */
+const configured=()=>cfg.owner&&cfg.repo&&cfg.token&&cfg.path;
+function status(c,t){const s=$('#sync');s.className=c;$('span',s).textContent=t;s.title=t}
+const b64e=str=>{const b=new TextEncoder().encode(str);let s='';for(let i=0;i<b.length;i+=8192)s+=String.fromCharCode.apply(null,b.subarray(i,i+8192));return btoa(s)};
+const b64d=b=>new TextDecoder().decode(Uint8Array.from(atob(b.replace(/\s/g,'')),c=>c.charCodeAt(0)));
+function api(method,body){
+  const u='https://api.github.com/repos/'+encodeURIComponent(cfg.owner)+'/'+encodeURIComponent(cfg.repo)+'/contents/'+cfg.path.split('/').map(encodeURIComponent).join('/');
+  return fetch(u+(method==='GET'?'?ref='+encodeURIComponent(cfg.branch)+'&_='+Date.now():''),{method,cache:'no-store',
+    headers:{Authorization:'Bearer '+cfg.token,Accept:'application/vnd.github+json'},body:body?JSON.stringify(body):undefined});
+}
+function ghErr(r){return r.status===401?'Token ungültig':r.status===403?'Kein Zugriff (Token-Rechte?)':r.status===404?'Repository nicht gefunden':'Fehler '+r.status}
+async function pull(){
+  if(!configured())return false;
+  status('busy','Lädt …');
+  try{
+    const r=await api('GET');
+    if(r.status===200){
+      const j=await r.json(); sha=j.sha;
+      if(ls.get(LSD)==='1'){await push();return true}       // ungespeicherte lokale Änderungen zuerst hochladen
+      data=normalize(JSON.parse(b64d(j.content))); ls.set(LS,JSON.stringify(data)); status('ok','Gespeichert'); return true;
+    }
+    if(r.status===404){
+      const t=await fetch('https://api.github.com/repos/'+encodeURIComponent(cfg.owner)+'/'+encodeURIComponent(cfg.repo),{headers:{Authorization:'Bearer '+cfg.token,Accept:'application/vnd.github+json'}});
+      if(t.ok){sha=null;await push();return true}             // Datei existiert noch nicht -> anlegen
+      status('err',ghErr(t));return false;
+    }
+    status('err',ghErr(r));return false;
+  }catch(e){status('err','Offline – lokal gesichert');return false}
+}
+async function push(retry){
+  if(!configured())return;
+  if(pushing){again=true;return}
+  pushing=true; status('busy','Speichert …');
+  try{
+    const body={message:'Zeiterfassung '+today()+' '+nowHM(),content:b64e(JSON.stringify(data,null,1)),branch:cfg.branch};
+    if(sha)body.sha=sha;
+    const r=await api('PUT',body);
+    if(r.ok){sha=(await r.json()).content.sha; ls.set(LSD,'0'); status('ok','Gespeichert')}
+    else if((r.status===409||r.status===422)&&!retry){
+      const g=await api('GET'); sha=g.ok?(await g.json()).sha:null; pushing=false; return push(true);
+    }else status('err',ghErr(r));
+  }catch(e){status('err','Offline – lokal gesichert')}
+  pushing=false;
+  if(again){again=false;push()}
+}
+document.addEventListener('visibilitychange',async()=>{
+  if(document.visibilityState==='visible'&&configured()&&ls.get(LSD)!=='1'&&!$('#dlg').open&&!/INPUT|SELECT/.test(document.activeElement.tagName)){if(await pull())render()}
+});
+window.addEventListener('online',()=>{if(ls.get(LSD)==='1')push()});
+
+/* ---------- Router ---------- */
+const view={year:null,month:null,calY:null,calM:null};
+function render(){
+  const r=(location.hash.replace(/^#\//,'')||'start').split('?')[0];
+  $$('nav a.tab').forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#/'+r));
+  ({start:pStart,rechner:pRechner,zeiten:pZeiten,kalender:pKalender}[r]||pStart)();
+}
+window.addEventListener('hashchange',()=>{render();scrollTo(0,0)});
+
+/* ---------- Startseite ---------- */
+function dayInfo(d){
+  const ys=ensureYearSoft(d), e=data.days[d]||{}, sh=shiftOf(d,data.settings), soll=sollOf(d,ys,data.settings);
+  return {e,sh,soll,ist:istOf(e,soll)};
+}
+function ensureYearSoft(d){return data.years[d.slice(0,4)]||{startGleitzeit:0,urlaub:30,sollMoDo:8.25,sollFr:8}}
+function pStart(){
+  const t=today(), i=dayInfo(t);
+  const head=i.e.a?ABSN[i.e.a]:i.soll>0?SHN[i.sh]:'Frei';
+  $('#app').innerHTML=`
+  <section class="hero">
+    <p class="eyebrow">${dLong(t)}</p>
+    <h1>${head}.</h1>
+    <p class="sub">KW ${kw(t)} ist eine ${SHN[i.sh]}-Woche${i.soll>0?' · Soll heute '+f2(i.soll)+' Std.':wd(t)===4?' · Freitag ist frei':''}</p>
+  </section>
+  <div class="card">
+    <h3>Heute erfassen</h3>
+    <div class="row">
+      <label class="f">Arbeitsbeginn<input type="time" id="hs" value="${i.e.s||''}"></label>
+      <label class="f">Arbeitsende<input type="time" id="he" value="${i.e.e||''}"></label>
+      <button class="btn" id="hin">Jetzt kommen</button>
+      <button class="btn sec" id="hout">Jetzt gehen</button>
+    </div>
+    <p class="muted small" id="hinfo" style="margin:14px 0 0"></p>
+  </div>
+  <div class="grid g4" id="stats"></div>
+  <h2>Demnächst.</h2>
+  <div class="card"><ul class="list" id="next"></ul></div>`;
+  const upd=()=>{
+    const t=today(), i=dayInfo(t), y=t.slice(0,4), c=computeYear(data,String(ensureYearKey(y)));
+    let s='';
+    if(i.e.s&&!i.e.e&&i.soll>0){const m=(mins(i.e.s)+Math.round((i.soll+.5)*60)+(Number(i.e.p)||0))%1440;s=`Soll erreicht um <b>${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')} Uhr</b> (inkl. 30 Min. Pause).`}
+    else if(i.e.s&&i.e.e)s=`Ist ${f2(i.ist)} Std. · Soll ${f2(i.soll)} Std. · <b class="${cls(i.ist-i.soll)}">${sg(i.ist-i.soll)} Std.</b>`;
+    else s='Noch keine Zeiten für heute eingetragen.';
+    $('#hinfo').innerHTML=s;
+    $('#stats').innerHTML=`
+      <div class="card stat"><div class="l">Gleitzeit gesamt</div><div class="v ${cls(c.end)}">${sg(c.end)}</div><div class="s">Stunden (${hm(c.end)})</div></div>
+      <div class="card stat"><div class="l">Resturlaub ${y}</div><div class="v">${dnum(c.rest)}</div><div class="s">von ${dnum(data.years[y].urlaub)} Tagen</div></div>
+      <div class="card stat"><div class="l">Krankentage</div><div class="v">${dnum(c.tot.k)}</div><div class="s">mit Attest</div></div>
+      <div class="card stat"><div class="l">Krank ohne Attest</div><div class="v">${dnum(c.tot.koa)}</div><div class="s">k.o.A.-Tage</div></div>`;
+  };
+  upd();
+  $('#hs').onchange=e=>{setDay(today(),{s:e.target.value});upd()};
+  $('#he').onchange=e=>{setDay(today(),{e:e.target.value});upd()};
+  $('#hin').onclick=()=>{$('#hs').value=nowHM();setDay(today(),{s:nowHM()});upd()};
+  $('#hout').onclick=()=>{$('#he').value=nowHM();setDay(today(),{e:nowHM()});upd()};
+  // Demnächst: Termine + Abwesenheiten (zusammengefasst)
+  const items=data.events.filter(e=>e.date>=t).map(e=>({d:e.date,t:e.time||'',h:`<span class="badge b-ev">Termin</span> ${esc(e.title)}${e.time?' · '+e.time+' Uhr':''}`}));
+  const ds=Object.keys(data.days).filter(d=>d>=t&&data.days[d].a&&data.days[d].a!=='F').sort();
+  for(let k=0;k<ds.length;){let j=k;while(j+1<ds.length&&data.days[ds[j+1]].a===data.days[ds[k]].a&&(pd(ds[j+1])-pd(ds[j]))/DAY<=4)j++;
+    const a=data.days[ds[k]].a;items.push({d:ds[k],t:'',h:`<span class="badge a-${ACL[a]}">${ABSN[a]}</span>${j>k?' bis '+dShort(ds[j])+ds[j].slice(0,4):''}`});k=j+1}
+  items.sort((a,b)=>(a.d+a.t).localeCompare(b.d+b.t));
+  $('#next').innerHTML=items.slice(0,8).map(x=>`<li><span class="d">${DOW[wd(x.d)]}, ${dShort(x.d)}</span><span class="x">${x.h}</span></li>`).join('')
+    ||'<li class="muted">Keine Termine oder Abwesenheiten geplant. <a href="#/kalender" style="margin-left:6px">Zum Kalender</a></li>';
+}
+function ensureYearKey(y){ensureYear(y);return y}
+
+/* ---------- Arbeitszeitrechner ---------- */
+function pRechner(){
+  const t=today(), e=data.days[t]||{};
+  $('#app').innerHTML=`
+  <section class="hero"><h1>Rechner.</h1><p class="sub">Arbeitszeit, Soll und Feierabend auf einen Blick.</p></section>
+  <div class="card">
+    <div class="row">
+      <label class="f">Datum<input type="date" id="rd" value="${t}"></label>
+      <label class="f">Arbeitsbeginn<input type="time" id="rs" value="${e.s||''}"></label>
+      <label class="f">Arbeitsende<input type="time" id="re" value="${e.e||''}"></label>
+      <label class="f">Zusatzpause (Min.)<input type="number" id="rp" min="0" step="1" inputmode="numeric" value="${e.p||''}"></label>
+    </div>
+    <p class="note" style="margin:12px 0 0">30 Minuten Pause werden automatisch abgezogen. Arbeitsende nach Mitternacht wird erkannt.</p>
+  </div>
+  <div class="grid g4" id="rout"></div>
+  <div class="card" style="margin-top:16px"><div class="row"><button class="btn" id="rsave">In Zeiterfassung übernehmen</button><span class="muted small" id="rmsg"></span></div></div>
+  <h2>Minuten umrechnen.</h2>
+  <div class="card"><div class="row">
+    <label class="f">Minuten<input type="number" id="cm" inputmode="numeric" placeholder="z. B. 25"></label>
+    <label class="f">Dezimalstunden<input type="number" id="cd" step="0.01" inputmode="decimal" placeholder="z. B. 0,42"></label>
+  </div><p class="note" style="margin:12px 0 0">Praktisch für die Gleitzeitkorrektur.</p></div>`;
+  const calc=()=>{
+    const d=$('#rd').value||t, x={s:$('#rs').value,e:$('#re').value,p:Number($('#rp').value)||0};
+    const ys=ensureYearSoft(d), sh=shiftOf(d,data.settings), soll=sollOf(d,ys,data.settings), ist=workedOf(x);
+    let fe='–';
+    if(x.s){const m=(mins(x.s)+Math.round((soll+.5)*60)+x.p)%1440;fe=String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')}
+    const has=x.s&&x.e;
+    $('#rout').innerHTML=`
+      <div class="card stat"><div class="l">Ist-Arbeitszeit</div><div class="v">${has?f2(ist):'–'}</div><div class="s">${has?hm(ist)+' Std.':'Beginn und Ende eingeben'}</div></div>
+      <div class="card stat"><div class="l">Soll-Arbeitszeit</div><div class="v">${f2(soll)}</div><div class="s"><span class="badge b-${sh}">${SHN[sh]}</span> ${DOW[wd(d)]}</div></div>
+      <div class="card stat"><div class="l">Gleitzeit Tag</div><div class="v ${has?cls(ist-soll):''}">${has?sg(ist-soll):'–'}</div><div class="s">${has?hm(ist-soll)+' Std.':''}</div></div>
+      <div class="card stat"><div class="l">Soll erreicht um</div><div class="v">${soll>0?fe:'–'}</div><div class="s">${soll>0?'frühester Feierabend ohne Minus':'kein Arbeitstag'}</div></div>`;
+  };
+  ['rd','rs','re','rp'].forEach(id=>$('#'+id).oninput=calc); calc();
+  $('#rd').onchange=()=>{const e=data.days[$('#rd').value]||{};$('#rs').value=e.s||'';$('#re').value=e.e||'';$('#rp').value=e.p||'';calc()};
+  $('#rsave').onclick=()=>{const d=$('#rd').value;if(!d)return;setDay(d,{s:$('#rs').value,e:$('#re').value,p:Number($('#rp').value)||0});$('#rmsg').textContent='Übernommen für '+dShort(d)+d.slice(0,4)+'.'};
+  $('#cm').oninput=e=>{$('#cd').value=e.target.value===''?'':(Math.round(e.target.value/60*100)/100)};
+  $('#cd').oninput=e=>{$('#cm').value=e.target.value===''?'':Math.round(e.target.value*60)};
+}
+
+/* ---------- Zeiterfassung ---------- */
+function pZeiten(){
+  const t=today();
+  if(!view.year||!data.years[view.year])view.year=data.years[t.slice(0,4)]?t.slice(0,4):Object.keys(data.years).sort().pop();
+  if(view.month==null)view.month=view.year===t.slice(0,4)?Number(t.slice(5,7))-1:0;
+  const y=view.year, ys=data.years[y], years=Object.keys(data.years).sort();
+  $('#app').innerHTML=`
+  <section class="hero"><h1>Zeiterfassung.</h1><p class="sub">Arbeitszeitübersicht ${y}</p></section>
+  <div class="pills" style="justify-content:center;margin-bottom:20px">
+    ${years.map(v=>`<button class="pill ${v===y?'on':''}" data-y="${v}">${v}</button>`).join('')}
+    <button class="pill" id="addy">+ Jahr</button>
+  </div>
+  <div class="grid g4" id="zstats"></div>
+  <div class="card" style="margin-top:16px">
+    <details><summary>Einstellungen ${y}</summary>
+      <div class="row" style="margin-top:14px">
+        <label class="f">Anfangs-Gleitzeit (Std.)<input type="number" step="0.01" data-ys="startGleitzeit" value="${ys.startGleitzeit}"></label>
+        <label class="f">Jahresurlaub (Tage)<input type="number" step="0.5" data-ys="urlaub" value="${ys.urlaub}"></label>
+        <label class="f">Sollzeit Mo–Do (Std.)<input type="number" step="0.01" data-ys="sollMoDo" value="${ys.sollMoDo}"></label>
+        <label class="f">Sollzeit Fr Frühschicht (Std.)<input type="number" step="0.01" data-ys="sollFr" value="${ys.sollFr}"></label>
+      </div>
+      ${data.years[String(y-1)]?'<p style="margin:12px 0 0"><button class="btn sec" id="carry">Gleitzeit-Übertrag aus '+(y-1)+' übernehmen</button></p>':''}
+    </details>
+  </div>
+  <div class="card"><h3>Monatsübersicht</h3><div class="scroll"><table id="ov"></table></div></div>
+  <h2 id="mt"></h2>
+  <div class="pills nowrap" style="margin-bottom:14px">${MON.map((m,k)=>`<button class="pill ${k===view.month?'on':''}" data-m="${k}">${m.slice(0,3)}</button>`).join('')}</div>
+  <div class="card" style="padding:12px 0"><div class="scroll"><table class="days" id="dt"></table></div></div>
+  <p class="note">Abwesenheit: K = krank, k.o.A. = krank ohne Attest, U = Urlaub, U/2 = halber Urlaubstag, F = Feiertag. Die Schicht wechselt wochenweise; Freitage zählen nur in Frühschichtwochen. Einträge erscheinen automatisch im Kalender.</p>`;
+  $$('[data-y]').forEach(b=>b.onclick=()=>{view.year=b.dataset.y;view.month=null;pZeiten()});
+  $('#addy').onclick=()=>{const n=prompt('Welches Jahr hinzufügen?',String(Number(years[years.length-1])+1));if(!n)return;if(!/^20\d\d$/.test(n.trim()))return alert('Bitte eine Jahreszahl wie 2027 eingeben.');ensureYear(n.trim());save();view.year=n.trim();view.month=0;pZeiten()};
+  $$('[data-ys]').forEach(i=>i.onchange=()=>{ys[i.dataset.ys]=Number(i.value)||0;save();refreshZ()});
+  if($('#carry'))$('#carry').onclick=()=>{ys.startGleitzeit=Math.round(computeYear(data,String(y-1)).end*100)/100;save();pZeiten()};
+  $$('[data-m]').forEach(b=>b.onclick=()=>{view.month=Number(b.dataset.m);$$('[data-m]').forEach(x=>x.classList.toggle('on',x===b));drawMonth()});
+  drawMonth();
+}
+function drawMonth(){
+  const y=view.year, m=view.month, t=today(), pre=y+'-'+String(m+1).padStart(2,'0');
+  $('#mt').textContent=MON[m]+' '+y+'.';
+  const c=computeYear(data,y), rows=c.rows.filter(r=>r.d.startsWith(pre));
+  $('#dt').innerHTML=`<thead><tr><th>Datum</th><th class="l">Schicht</th><th class="l">Abwesenheit</th><th class="l">Beginn</th><th class="l">Ende</th><th class="l">Zusatzpause</th><th>Ist</th><th>Soll</th><th class="l">Korrektur</th><th>Gleitzeit Tag</th><th>Gleitzeit gesamt</th></tr></thead><tbody>`+
+  rows.map(r=>{const e=data.days[r.d]||{}, w=wd(r.d);
+    return `<tr data-d="${r.d}" class="${w>4?'we':''} ${r.d===t?'today':''}">
+      <td>${DOW[w]} ${dShort(r.d)}</td>
+      <td class="l"><span class="badge b-${r.soll>0?r.shift:'0'}">${r.soll>0?(r.shift==='F'?'Früh':'Spät'):'frei'}</span></td>
+      <td class="in"><select data-k="a" aria-label="Abwesenheit"><option value=""></option>${ABS.map(a=>`<option ${e.a===a[0]?'selected':''}>${a[0]}</option>`).join('')}</select></td>
+      <td class="in"><input type="time" data-k="s" value="${e.s||''}" aria-label="Arbeitsbeginn"></td>
+      <td class="in"><input type="time" data-k="e" value="${e.e||''}" aria-label="Arbeitsende"></td>
+      <td class="in"><input type="number" data-k="p" min="0" step="1" inputmode="numeric" value="${e.p||''}" placeholder="Min." aria-label="Zusatzpause in Minuten" style="width:76px"></td>
+      <td data-c="ist"></td><td data-c="soll"></td>
+      <td class="in"><input type="number" data-k="k" step="0.01" inputmode="decimal" value="${e.k||''}" placeholder="Std." aria-label="Gleitzeitkorrektur" style="width:84px"></td>
+      <td data-c="gz"></td><td data-c="cum"></td></tr>`}).join('')+
+  `</tbody><tfoot><tr class="sum"><td>Monatssumme</td><td></td><td></td><td></td><td></td><td></td><td data-s="ist"></td><td data-s="soll"></td><td></td><td data-s="gz"></td><td data-s="cum"></td></tr></tfoot>`;
+  $$('#dt [data-k]').forEach(i=>i.onchange=()=>{
+    const k=i.dataset.k, d=i.closest('tr').dataset.d;
+    setDay(d,{[k]:(k==='p'||k==='k')?(i.value===''?'':Number(i.value)):i.value}); refreshZ();
+  });
+  refreshZ();
+}
+function refreshZ(){
+  const y=view.year, m=view.month, c=computeYear(data,y), by=Object.fromEntries(c.rows.map(r=>[r.d,r]));
+  $$('#dt tbody tr').forEach(tr=>{const r=by[tr.dataset.d], e=data.days[r.d]||{}, act=e.a||e.s||e.e;
+    $('[data-c=ist]',tr).textContent=r.ist?f2(r.ist):act?f2(0):'';
+    $('[data-c=soll]',tr).textContent=r.soll?f2(r.soll):'';
+    const g=$('[data-c=gz]',tr);g.textContent=act?sg(r.gz):'';g.className=act?cls(r.gz):'';
+    const cu=$('[data-c=cum]',tr);cu.textContent=sg(r.cum);cu.className=cls(r.cum);
+    const b=$('.badge',tr);b.className='badge b-'+(r.soll>0?r.shift:'0');
+  });
+  const M=c.months[m], last=c.rows.filter(r=>Number(r.d.slice(5,7))-1===m).pop();
+  $('[data-s=ist]').textContent=f2(M.ist);$('[data-s=soll]').textContent=f2(M.soll);
+  $('[data-s=gz]').textContent=sg(M.gz);$('[data-s=gz]').className=cls(M.gz);
+  $('[data-s=cum]').textContent=sg(last.cum);$('[data-s=cum]').className=cls(last.cum);
+  const line=(n,M,c2)=>`<tr class="${c2||''}"><td>${n}</td><td>${f2(M.ist)}</td><td>${f2(M.soll)}</td><td class="${cls(M.gz)}">${sg(M.gz)}</td><td>${dnum(M.u)}</td><td>${dnum(M.k)}</td><td>${dnum(M.koa)}</td></tr>`;
+  $('#ov').innerHTML='<thead><tr><th>Monat</th><th>Ist-Stunden</th><th>Soll-Stunden</th><th>Gleitzeit Monat</th><th>Urlaubstage</th><th>Krankentage</th><th>k.o.A.-Tage</th></tr></thead><tbody>'+
+    c.months.map((M,k)=>line(MON[k],M)).join('')+line('Gesamt',c.tot,'sum')+'</tbody>';
+  $('#zstats').innerHTML=`
+    <div class="card stat"><div class="l">Gleitzeit gesamt</div><div class="v ${cls(c.end)}">${sg(c.end)}</div><div class="s">Stunden, inkl. Korrekturen</div></div>
+    <div class="card stat"><div class="l">Verbleibende Urlaubstage</div><div class="v">${dnum(c.rest)}</div><div class="s">${dnum(c.tot.u)} von ${dnum(data.years[y].urlaub)} genommen/geplant</div></div>
+    <div class="card stat"><div class="l">Krankentage</div><div class="v">${dnum(c.tot.k)}</div><div class="s">mit Attest</div></div>
+    <div class="card stat"><div class="l">Krank ohne Attest</div><div class="v">${dnum(c.tot.koa)}</div><div class="s">k.o.A.</div></div>`;
+}
+
+/* ---------- Kalender ---------- */
+function pKalender(){
+  const t=today();
+  if(view.calY==null){view.calY=Number(t.slice(0,4));view.calM=Number(t.slice(5,7))-1}
+  const y=view.calY, m=view.calM, pre=y+'-'+String(m+1).padStart(2,'0'), first=pre+'-01';
+  const n=new Date(Date.UTC(y,m+1,0)).getUTCDate(), off=wd(first), ti=dayInfo(t);
+  let cells=DOW.map(d=>`<div class="dow">${d}</div>`).join('')+'<div></div>'.repeat(off);
+  for(let k=1;k<=n;k++){
+    const d=pre+'-'+String(k).padStart(2,'0'), i=dayInfo(d), a=i.e.a, ev=data.events.filter(e=>e.date===d).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+    const lab=[DOWL[wd(d)]+' '+k+'.',i.soll>0?SHN[i.sh]:'frei',a?ABSN[a]:'',ev.length?ev.length+' Termin(e)':''].filter(Boolean).join(', ');
+    cells+=`<button class="day ${i.soll>0?'':'off'} ${d===t?'today':''} ${a?'abs-'+ACL[a]:''}" data-d="${d}" aria-label="${lab}">
+      <span class="n"><span>${k}</span>${i.soll>0?`<span class="sh b-${i.sh}" title="${SHN[i.sh]}">${i.sh}</span>`:''}</span>
+      ${a?`<span class="badge a-${ACL[a]}">${innerWidth<641?a:ABSN[a]}</span>`:''}
+      ${ev.slice(0,2).map(e=>`<span class="badge b-ev">${esc((innerWidth<641?'':(e.time?e.time+' ':''))+e.title)}</span>`).join('')}
+      ${ev.length>2?`<span class="note">+${ev.length-2}</span>`:''}</button>`;
+  }
+  $('#app').innerHTML=`
+  <section class="hero" style="padding-bottom:8px"><p class="eyebrow">Heute · KW ${kw(t)}</p>
+    <h1>${ti.e.a?ABSN[ti.e.a]:ti.soll>0?SHN[ti.sh]:'Frei'}.</h1>
+    <p class="sub">Diese Woche: ${SHN[ti.sh]} · nächste Woche: ${SHN[shiftOf(addDays(t,7),data.settings)]}</p></section>
+  <div class="calhead"><h2>${MON[m]} ${y}</h2>
+    <button class="btn sec" id="ct">Heute</button><button class="circ" id="cp" aria-label="Vorheriger Monat">‹</button><button class="circ" id="cn" aria-label="Nächster Monat">›</button></div>
+  <div class="cal">${cells}</div>
+  <div class="legend"><span class="badge b-F">F · Frühschicht</span><span class="badge b-S">S · Spätschicht</span>${ABS.map(a=>`<span class="badge a-${ACL[a[0]]}">${a[0]} · ${a[1]}</span>`).join('')}<span class="badge b-ev">Termin</span></div>
+  <p class="note" style="margin-top:14px">Tag antippen, um Urlaub, Krankheit oder Termine einzutragen. Abwesenheiten werden direkt in die Zeiterfassung übernommen – und umgekehrt.</p>`;
+  $('#cp').onclick=()=>{if(--view.calM<0){view.calM=11;view.calY--}pKalender()};
+  $('#cn').onclick=()=>{if(++view.calM>11){view.calM=0;view.calY++}pKalender()};
+  $('#ct').onclick=()=>{view.calY=null;pKalender()};
+  $$('.day').forEach(b=>b.onclick=()=>dayDialog(b.dataset.d));
+}
+function dayDialog(d){
+  const i=dayInfo(d), a=i.e.a||'', ev=data.events.filter(e=>e.date===d).sort((x,y)=>(x.time||'').localeCompare(y.time||''));
+  openDlg(`
+    <p class="eyebrow" style="font-size:14px">${i.soll>0?SHN[i.sh]+' · Soll '+f2(i.soll)+' Std.':'Kein Arbeitstag'}${i.e.s?' · '+i.e.s+(i.e.e?'–'+i.e.e:''):''}</p>
+    <h3>${dLong(d)}</h3>
+    <div class="sect"><div class="t">Abwesenheit</div>
+      <div class="pills"><button class="pill ${a?'':'on'}" data-a="">Keine</button>${ABS.map(x=>`<button class="pill ${a===x[0]?'on':''}" data-a="${x[0]}">${x[1]}</button>`).join('')}</div>
+      <label class="f" style="margin-top:12px">Zeitraum bis (optional)<input type="date" id="dto" min="${d}"></label>
+      <p class="note" style="margin:6px 0 0">Mit „bis“-Datum wird die Auswahl für alle Arbeitstage im Zeitraum eingetragen; Wochenenden, freie Freitage und Feiertage werden übersprungen.</p>
+    </div>
+    <div class="sect"><div class="t">Termine</div>
+      <ul class="list">${ev.map(e=>`<li><span class="d">${e.time?e.time+' Uhr':'ganztägig'}</span><span class="x">${esc(e.title)}</span><button class="btn danger" data-del="${e.id}" aria-label="Termin löschen">Löschen</button></li>`).join('')||'<li class="muted small">Keine Termine</li>'}</ul>
+      <div class="row" style="margin-top:8px">
+        <label class="f" style="flex:2">Neuer Termin<input type="text" id="et" placeholder="Titel" maxlength="80"></label>
+        <label class="f">Uhrzeit<input type="time" id="eh"></label>
+        <button class="btn sec" id="ea">Hinzufügen</button>
+      </div>
+    </div>
+    <div class="row" style="margin-top:24px;justify-content:space-between"><a class="btn ghost" href="#/zeiten" id="toz">In Zeiterfassung öffnen</a><button class="btn" id="dok">Fertig</button></div>`);
+  $$('#dlgc [data-a]').forEach(b=>b.onclick=()=>{
+    const to=$('#dto').value, v=b.dataset.a;
+    if(to&&to>=d){
+      if((pd(to)-pd(d))/DAY>366)return alert('Zeitraum ist zu lang.');
+      for(let x=d;x<=to;x=addDays(x,1)){const j=dayInfo(x);if(x!==d&&(sollOf(x,ensureYear(x.slice(0,4)),data.settings)===0||j.e.a==='F'))continue;setDay(x,{a:v})}
+    }else setDay(d,{a:v});
+    pKalender(); dayDialog(d);
+  });
+  $$('#dlgc [data-del]').forEach(b=>b.onclick=()=>{data.events=data.events.filter(e=>e.id!==b.dataset.del);save();pKalender();dayDialog(d)});
+  const add=()=>{const ti=$('#et').value.trim();if(!ti)return $('#et').focus();data.events.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),date:d,title:ti,time:$('#eh').value||''});save();pKalender();dayDialog(d)};
+  $('#ea').onclick=add; $('#et').onkeydown=e=>{if(e.key==='Enter')add()};
+  $('#dok').onclick=closeDlg;
+  $('#toz').onclick=()=>{view.year=d.slice(0,4);view.month=Number(d.slice(5,7))-1;ensureYear(view.year);closeDlg()};
+}
+function openDlg(html){const g=$('#dlg');$('#dlgc').innerHTML=html;if(!g.open)g.showModal()}
+function closeDlg(){$('#dlg').close()}
+$('#dlg').addEventListener('click',e=>{if(e.target===$('#dlg'))closeDlg()});
+
+/* ---------- Einstellungen ---------- */
+$('#gear').onclick=()=>{
+  const s=data.settings;
+  openDlg(`<h3>Einstellungen</h3>
+    <div class="sect"><div class="t">GitHub-Speicher</div>
+      <p class="note" style="margin:0 0 10px">Trage hier das Repository ein, in dem deine Daten liegen sollen – am besten ein <b>privates</b>. Das Token wird nur in diesem Browser gespeichert und nie hochgeladen.</p>
+      <div class="row">
+        <label class="f">GitHub-Benutzername<input id="so" value="${esc(cfg.owner)}" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
+        <label class="f">Repository (für Daten)<input id="sr" value="${esc(cfg.repo)}" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
+        <label class="f">Branch<input id="sb" value="${esc(cfg.branch)}" autocapitalize="off" spellcheck="false"></label>
+        <label class="f">Datei<input id="sp" value="${esc(cfg.path)}" autocapitalize="off" spellcheck="false"></label>
+        <label class="f" style="min-width:100%">Zugangstoken (Fine-grained, „Contents: Read and write“)<input id="stk" type="password" value="${esc(cfg.token)}" autocomplete="off" placeholder="github_pat_…"></label>
+      </div>
+      <div class="row" style="margin-top:12px"><button class="btn" id="sc">Verbinden</button><button class="btn danger" id="sx">Trennen</button><span class="small muted" id="sm"></span></div>
+    </div>
+    <div class="sect"><div class="t">Schichtrhythmus</div>
+      <div class="row">
+        <label class="f">Montag einer bekannten Woche<input type="date" id="sa" value="${s.anchor}"></label>
+        <label class="f">Schicht in dieser Woche<select id="ss"><option value="F" ${s.anchorShift==='F'?'selected':''}>Frühschicht</option><option value="S" ${s.anchorShift==='S'?'selected':''}>Spätschicht</option></select></label>
+      </div><p class="note" style="margin:6px 0 0">Ab dieser Woche wechselt die Schicht wöchentlich – auch über den Jahreswechsel hinaus.</p>
+    </div>
+    <div class="sect"><div class="t">Sicherung</div>
+      <div class="row"><button class="btn sec" id="si">Daten importieren (JSON)</button><button class="btn sec" id="se">Sicherung herunterladen</button><input type="file" id="sf" accept=".json,application/json" hidden></div>
+    </div>
+    <div class="row" style="margin-top:24px;justify-content:flex-end"><button class="btn" id="sok">Fertig</button></div>`);
+  $('#sok').onclick=()=>{closeDlg();render()};
+  $('#sc').onclick=async()=>{
+    cfg={owner:$('#so').value.trim(),repo:$('#sr').value.trim(),branch:$('#sb').value.trim()||'main',path:$('#sp').value.trim().replace(/^\/+/,'')||'data.json',token:$('#stk').value.trim()};
+    if(!configured())return $('#sm').textContent='Bitte alle Felder ausfüllen.';
+    ls.set(LSC,JSON.stringify(cfg)); sha=null; $('#sm').textContent='Verbinde …';
+    const fresh=!Object.keys(data.days).length&&!data.events.length; if(fresh)ls.set(LSD,'0');
+    const ok=await pull(); $('#sm').textContent=ok?'Verbunden. Daten werden automatisch gespeichert.':'Fehlgeschlagen: '+$('#sync span').textContent;
+    if(ok)render();
+  };
+  $('#sx').onclick=()=>{cfg.token='';ls.set(LSC,JSON.stringify(cfg));$('#stk').value='';sha=null;status('','Lokal');$('#sm').textContent='Token aus diesem Browser entfernt.'};
+  const sh=()=>{const v=$('#sa').value;if(!v)return;data.settings.anchor=mondayOf(v);data.settings.anchorShift=$('#ss').value;$('#sa').value=data.settings.anchor;save()};
+  $('#sa').onchange=sh;$('#ss').onchange=sh;
+  $('#si').onclick=()=>$('#sf').click();
+  $('#sf').onchange=async e=>{const f=e.target.files[0];if(!f)return;
+    try{const j=JSON.parse(await f.text());if(!j.days||!j.years)throw 0;
+      if(!confirm('Vorhandene Daten durch die importierte Datei ersetzen?'))return;
+      data=normalize(j);save();closeDlg();render();
+    }catch(x){alert('Die Datei konnte nicht gelesen werden.')}};
+  $('#se').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,1)],{type:'application/json'}));a.download='arbeitszeit-sicherung-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};
+};
+
+/* ---------- Start ---------- */
+render();
+if(configured())pull().then(ok=>{if(ok)render()}); else status('','Lokal');
+</script>
+</body>
+</html>
