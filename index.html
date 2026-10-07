@@ -48,11 +48,14 @@ nav .sp{flex:1}
 #sync.ok i{background:var(--pos)} #sync.busy i{background:#ff9f0a} #sync.err i{background:var(--neg)}
 #gear{border:0;background:none;cursor:pointer;font-size:18px;padding:6px 4px 6px 8px;opacity:.8;line-height:1}
 nav .sm{display:none}
+#lout{border:0;background:var(--soft);cursor:pointer;font-size:13px;padding:6px 10px;border-radius:980px;white-space:nowrap;flex:none}
+body.out #lout{display:none}
+@media (max-width:380px){nav a.tab{padding:6px 3px !important;font-size:11px !important} #lout{padding:6px 6px !important;font-size:11px !important} nav .in{padding:0 6px !important}}
 nav a.tab.adm{display:none}
 body.admin nav a.tab{display:none}
 body.admin nav a.tab.adm{display:inline}
 body.out nav a.tab{visibility:hidden}
-@media (max-width:520px){#sync span{display:none} nav a.tab{padding:6px 7px} nav .in{gap:1px;padding:0 10px;overflow-x:auto} nav .lg{display:none} nav .sm{display:inline}}
+@media (max-width:520px){#sync span{display:none} nav a.tab{padding:6px 5px;font-size:12px} #lout{font-size:12px;padding:6px 8px} #gear{padding:6px 4px} nav .in{gap:1px;padding:0 10px;overflow-x:auto} nav .lg{display:none} nav .sm{display:inline}}
 
 main{max-width:1024px;margin:0 auto;padding:0 16px 80px}
 .hero{text-align:center;padding:56px 0 36px}
@@ -170,6 +173,7 @@ footer{text-align:center;font-size:12px;color:var(--muted);padding:0 16px 40px}
   <span class="sp"></span>
   <div id="sync" title="Speicherstatus"><i></i><span>Lokal</span></div>
   <button id="gear" aria-label="Einstellungen" title="Einstellungen">⚙︎</button>
+  <button id="lout" class="tab">Abmelden</button>
 </div></nav>
 <main id="app"></main>
 <footer>Jede Person sieht nur ihre eigenen Daten · gespeichert im privaten GitHub-Repository</footer>
@@ -764,17 +768,18 @@ function pAufgaben(){
 
 /* ---------- Einstellungen ---------- */
 function openSettings(){
-  const s=data.settings, gh=!isUser();
+  if(!user&&configured())return showLogin();          // ohne Anmeldung keine Einstellungen
+  const s=data.settings, gh=user==='admin'||!user;
   openDlg(`<h3>${user?'Einstellungen':'Einrichtung'}</h3>
     ${user?`<div class="row" style="align-items:center;justify-content:space-between"><span>Angemeldet als <b>${esc(user==='admin'?'Admin':user)}</b></span>
-      <span>${isUser()?'<button class="btn ghost" id="spw">Passwort ändern</button>':''}<button class="btn sec" id="slo">Abmelden</button></span></div><p class="small" id="spm" style="margin:6px 0 0"></p>`:''}
+      <span>${isUser()?'<button class="btn ghost" id="spw">Passwort ändern</button>':''}</span></div><p class="small" id="spm" style="margin:6px 0 0"></p>`:''}
     ${gh?`<div class="sect"><div class="t">GitHub-Speicher</div>
       <p class="note" style="margin:0 0 10px">Trage hier das <b>private</b> Repository ein, in dem die Daten aller Benutzer liegen. Das Token wird nur in diesem Browser gespeichert.</p>
       <div class="row">
         <label class="f">GitHub-Benutzername<input id="so" value="${esc(cfg.owner)}" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
         <label class="f">Repository (für Daten)<input id="sr" value="${esc(cfg.repo)}" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
         <label class="f">Branch<input id="sb" value="${esc(cfg.branch)}" autocapitalize="off" spellcheck="false"></label>
-        <label class="f" style="min-width:100%">Zugangstoken (Fine-grained, „Contents: Read and write“)<input id="stk" type="password" value="${esc(cfg.token)}" autocomplete="off" placeholder="github_pat_…"></label>
+        <label class="f" style="min-width:100%">Zugangstoken (Fine-grained, „Contents: Read and write“)<input id="stk" type="password" value="" autocomplete="off" placeholder="${cfg.token?'gespeichert – nur ausfüllen, um es zu ersetzen':'github_pat_…'}"></label>
       </div>
       <div class="row" style="margin-top:12px"><button class="btn" id="sc">Verbinden</button>${configured()?'<button class="btn danger" id="sx">Gerät trennen</button>':''}<span class="small muted" id="sm"></span></div>
     </div>`:''}
@@ -797,12 +802,11 @@ function openSettings(){
     <div class="row" style="margin-top:24px;justify-content:flex-end"><button class="btn" id="sok">Fertig</button></div>`);
   const on=(q,f)=>{const el=$(q);if(el)el.onclick=f};
   on('#sok',()=>{closeDlg();if(isUser())render()});
-  on('#slo',logout);
   on('#spw',async()=>{const pw=prompt('Neues Passwort (mind. 4 Zeichen):'), m=$('#spm'); if(pw==null)return;
     try{if(pw.length<4)throw new Error('Das Passwort braucht mindestens 4 Zeichen.');const u=await loadUsers();u.db.users[user]=Object.assign(u.db.users[user]||{created:today()},await mkPw(pw));await saveUsers(u);m.textContent='Passwort geändert.';m.className='small pos'}
     catch(e){m.textContent=netMsg(e);m.className='small neg'}});
   on('#sc',async()=>{
-    cfg={owner:$('#so').value.trim(),repo:$('#sr').value.trim(),branch:$('#sb').value.trim()||'main',path:cfg.path||'data.json',token:$('#stk').value.trim()};
+    cfg={owner:$('#so').value.trim(),repo:$('#sr').value.trim(),branch:$('#sb').value.trim()||'main',path:cfg.path||'data.json',token:$('#stk').value.trim()||cfg.token};
     if(!configured())return $('#sm').textContent='Bitte alle Felder ausfüllen.';
     $('#sm').textContent='Verbinde …';
     try{const t=await repoGet(); if(!t.ok)return $('#sm').textContent='Fehlgeschlagen: '+ghErr(t)}catch(e){return $('#sm').textContent='Keine Verbindung zu GitHub.'}
@@ -837,6 +841,7 @@ function openSettings(){
   $('#se').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,1)],{type:'application/json'}));a.download='arbeitszeit-sicherung-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};
 }
 $('#gear').onclick=openSettings;
+$('#lout').onclick=logout;
 
 /* ---------- Start ---------- */
 /* ---------- Passwort-Zugang (zugang.json) ---------- */
