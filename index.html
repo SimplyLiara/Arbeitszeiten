@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Arbeitszeit">
 <style>
 :root{
+  color-scheme:light;
   --bg:#f5f5f7; --card:#fff; --text:#1d1d1f; --muted:#6e6e73; --line:#d2d2d7; --soft:#e8e8ed;
   --blue:#0071e3; --blue-h:#0077ed; --nav:rgba(251,251,253,.8);
   --early:#b25000; --early-bg:#fff1dc; --late:#5e35b1; --late-bg:#ece6fb;
@@ -20,13 +21,22 @@
   --r:18px;
 }
 @media (prefers-color-scheme: dark){
-  :root{
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
     --bg:#000; --card:#1c1c1e; --text:#f5f5f7; --muted:#a1a1a6; --line:#3a3a3c; --soft:#2c2c2e;
     --blue:#2997ff; --blue-h:#47a6ff; --nav:rgba(22,22,23,.8);
     --early:#ffb340; --early-bg:#3a2a10; --late:#b79cff; --late-bg:#2a2140;
     --u:#4cd964; --u-bg:#12331b; --k:#ff6961; --k-bg:#3d1616; --koa:#ffb340; --koa-bg:#3a2a10; --f:#c7c7cc; --f-bg:#2c2c2e; --ru:#5ad4e6; --ru-bg:#0c2f36;
     --ev:#64b5ff; --ev-bg:#0f2a45; --pos:#4cd964; --neg:#ff6961;
   }
+}
+:root[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#000; --card:#1c1c1e; --text:#f5f5f7; --muted:#a1a1a6; --line:#3a3a3c; --soft:#2c2c2e;
+    --blue:#2997ff; --blue-h:#47a6ff; --nav:rgba(22,22,23,.8);
+    --early:#ffb340; --early-bg:#3a2a10; --late:#b79cff; --late-bg:#2a2140;
+    --u:#4cd964; --u-bg:#12331b; --k:#ff6961; --k-bg:#3d1616; --koa:#ffb340; --koa-bg:#3a2a10; --f:#c7c7cc; --f-bg:#2c2c2e; --ru:#5ad4e6; --ru-bg:#0c2f36;
+    --ev:#64b5ff; --ev-bg:#0f2a45; --pos:#4cd964; --neg:#ff6961;
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -46,11 +56,13 @@ nav .sp{flex:1}
 #sync{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;white-space:nowrap}
 #sync i{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
 #sync.ok i{background:var(--pos)} #sync.busy i{background:#ff9f0a} #sync.err i{background:var(--neg)}
+#theme{border:0;background:none;cursor:pointer;padding:6px 2px 6px 8px;opacity:.8;line-height:0;color:var(--text)}
+#theme svg{width:18px;height:18px;display:block}
 #gear{border:0;background:none;cursor:pointer;font-size:18px;padding:6px 4px 6px 8px;opacity:.8;line-height:1}
 nav .sm{display:none}
 #lout{border:0;background:var(--soft);cursor:pointer;font-size:13px;padding:6px 10px;border-radius:980px;white-space:nowrap;flex:none}
 body.out #lout{display:none}
-@media (max-width:380px){nav a.tab{padding:6px 3px !important;font-size:11px !important} #lout{padding:6px 6px !important;font-size:11px !important} nav .in{padding:0 6px !important}}
+@media (max-width:440px){nav a.tab{padding:6px 3px !important;font-size:11px !important} #lout{padding:6px 6px !important;font-size:11px !important} nav .in{padding:0 6px !important}}
 nav a.tab.adm{display:none}
 body.admin nav a.tab{display:none}
 body.admin nav a.tab.adm{display:inline}
@@ -163,6 +175,7 @@ footer{text-align:center;font-size:12px;color:var(--muted);padding:0 16px 40px}
 </style>
 </head>
 <body>
+<script>try{var t=localStorage.getItem('azeit.theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
 <nav><div class="in">
   <a class="tab" href="#/start">Start</a>
   <a class="tab" href="#/rechner">Rechner</a>
@@ -172,6 +185,7 @@ footer{text-align:center;font-size:12px;color:var(--muted);padding:0 16px 40px}
   <a class="tab adm" href="#/verwaltung">Verwaltung</a>
   <span class="sp"></span>
   <div id="sync" title="Speicherstatus"><i></i><span>Lokal</span></div>
+  <button id="theme" aria-label="Dunkelmodus umschalten" title="Hell/Dunkel"></button>
   <button id="gear" aria-label="Einstellungen" title="Einstellungen">⚙︎</button>
   <button id="lout" class="tab">Abmelden</button>
 </div></nav>
@@ -848,6 +862,15 @@ function openSettings(){
   $('#se').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,1)],{type:'application/json'}));a.download='arbeitszeit-sicherung-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};
 }
 $('#gear').onclick=openSettings;
+/* ---------- Hell/Dunkel ---------- */
+const SUN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>';
+const MOON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>';
+const isDark=()=>{const t=document.documentElement.dataset.theme;return t?t==='dark':matchMedia('(prefers-color-scheme: dark)').matches};
+function paintTheme(){const d=isDark();$('#theme').innerHTML=d?SUN:MOON;$('#theme').title=d?'Zum hellen Modus wechseln':'Zum dunklen Modus wechseln';$('#theme').setAttribute('aria-label',$('#theme').title);
+  $$('meta[name=theme-color]').forEach(m=>m.content=d?'#000000':'#f5f5f7')}
+try{const t=localStorage.getItem('azeit.theme');if(t)document.documentElement.dataset.theme=t}catch(e){}
+$('#theme').onclick=()=>{const t=isDark()?'light':'dark';document.documentElement.dataset.theme=t;try{localStorage.setItem('azeit.theme',t)}catch(e){}paintTheme()};
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',paintTheme); paintTheme();
 $('#lout').onclick=logout;
 
 /* ---------- Start ---------- */
