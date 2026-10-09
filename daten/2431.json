@@ -2,7 +2,8 @@
  "version": 1,
  "settings": {
   "anchor": "2026-01-05",
-  "anchorShift": "S"
+  "anchorShift": "S",
+  "land": "ST"
  },
  "years": {
   "2026": {
@@ -134,7 +135,8 @@
    "e": "15:10"
   },
   "2026-10-09": {
-   "s": "06:05"
+   "s": "06:05",
+   "p": 1
   }
  },
  "events": [
