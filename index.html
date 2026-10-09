@@ -116,6 +116,9 @@ input:focus,select:focus,button:focus-visible,a:focus-visible{outline:3px solid 
 .todo .tx b{font-weight:400}
 .todo .du{display:block;font-size:13px;color:var(--muted)}
 .todo .du.late{color:var(--neg);font-weight:600}
+.todo select.prs{width:auto;min-height:32px;padding:4px 26px 4px 10px;font-size:13px;font-weight:600;border-radius:980px;border:0;flex:none}
+.pr0{background:var(--soft);color:var(--muted)} .pr1{background:var(--u-bg);color:var(--u)} .pr2{background:var(--koa-bg);color:var(--koa)} .pr3{background:var(--k-bg);color:var(--k)}
+@media (max-width:520px){.todo{display:grid;grid-template-columns:26px auto 1fr;grid-template-areas:"cb tx tx" ". pr del";gap:6px 12px}.todo input[type=checkbox]{grid-area:cb}.todo .tx{grid-area:tx}.todo select.prs,.todo .badge{grid-area:pr;justify-self:start}.todo .btn.danger{grid-area:del;justify-self:end;padding:4px 0}}
 
 /* Tabellen */
 table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
@@ -957,12 +960,14 @@ function monthPdf(y,m){
 }
 
 /* ---------- Aufgaben ---------- */
+const PRIO=[['','Keine Prio'],['1','Niedrig'],['2','Mittel'],['3','Hoch']];
 function pAufgaben(){
   $('#app').innerHTML=`
   <section class="hero"><h1>Aufgaben.</h1><p class="sub" id="tsub"></p></section>
   <div class="card"><div class="row">
     <label class="f" style="flex:3;min-width:200px">Neue Aufgabe<input type="text" id="tt" placeholder="Was ist zu tun?" maxlength="140"></label>
     <label class="f">Fällig am (optional)<input type="date" id="td"></label>
+    <label class="f">Prio<select id="tpr">${PRIO.map(([v,n])=>`<option value="${v}">${n}</option>`).join('')}</select></label>
     <button class="btn" id="ta">Hinzufügen</button>
   </div></div>
   <div class="card"><h3>Offen</h3><div id="topen"></div></div>
@@ -970,10 +975,11 @@ function pAufgaben(){
     <p style="margin:10px 0 0"><button class="btn danger" id="tclr">Erledigte löschen</button></p></details></div>
   <p class="note">Offene Aufgaben mit Fälligkeitsdatum erscheinen auch im Kalender und auf der Startseite unter „Demnächst“.</p>`;
   const draw=()=>{
-    const t=today(), key=x=>(x.due||'9999')+x.id;
+    const t=today(), key=x=>(9-(Number(x.prio)||0))+(x.due||'9999')+x.id;
     const open=data.todos.filter(x=>!x.done).sort((a,b)=>key(a).localeCompare(key(b))), done=data.todos.filter(x=>x.done).sort((a,b)=>(b.doneAt||'').localeCompare(a.doneAt||''));
     const row=x=>`<div class="todo ${x.done?'done':''}"><input type="checkbox" data-t="${x.id}" ${x.done?'checked':''} aria-label="${esc(x.title)} erledigt">
       <span class="tx"><b>${esc(x.title)}</b>${x.done?`<span class="du">erledigt am ${dShort(x.doneAt||t)}</span>`:x.due?`<span class="du ${x.due<t?'late':''}">${x.due<t?'überfällig seit ':x.due===t?'heute fällig · ':'fällig '}${DOW[wd(x.due)]}, ${dShort(x.due)}${x.due.slice(0,4)}</span>`:''}</span>
+      ${x.done?(x.prio?`<span class="badge pr${x.prio}">${PRIO[x.prio][1]}</span>`:''):`<select class="prs pr${x.prio||0}" data-pr="${esc(x.id)}" aria-label="Prio für ${esc(x.title)}">${PRIO.map(([v,n])=>`<option value="${v}" ${String(x.prio||'')===v?'selected':''}>${n}</option>`).join('')}</select>`}
       <button class="btn danger" data-x="${x.id}" aria-label="${esc(x.title)} löschen">Löschen</button></div>`;
     const late=open.filter(x=>x.due&&x.due<t).length;
     $('#tsub').textContent=open.length?open.length+(open.length===1?' offene Aufgabe':' offene Aufgaben')+(late?' · '+late+' überfällig':''):'Alles erledigt.';
@@ -982,8 +988,9 @@ function pAufgaben(){
     $('#tclr').hidden=!done.length;
     $$('[data-t]').forEach(c=>c.onchange=()=>{const x=data.todos.find(x=>x.id===c.dataset.t);x.done=c.checked;if(x.done)x.doneAt=today();else delete x.doneAt;save();draw()});
     $$('[data-x]').forEach(b=>b.onclick=()=>{data.todos=data.todos.filter(x=>x.id!==b.dataset.x);save();draw()});
+    $$('[data-pr]').forEach(sel=>sel.onchange=()=>{const x=data.todos.find(x=>x.id===sel.dataset.pr);if(sel.value)x.prio=sel.value;else delete x.prio;save();draw()});
   };
-  const add=()=>{const v=$('#tt').value.trim();if(!v)return $('#tt').focus();data.todos.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),title:v,due:$('#td').value||'',done:false});$('#tt').value='';save();draw();$('#tt').focus()};
+  const add=()=>{const v=$('#tt').value.trim();if(!v)return $('#tt').focus();data.todos.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),title:v,due:$('#td').value||'',done:false,...($('#tpr').value?{prio:$('#tpr').value}:{})});$('#tt').value='';$('#tpr').value='';save();draw();$('#tt').focus()};
   $('#ta').onclick=add; $('#tt').onkeydown=e=>{if(e.key==='Enter')add()};
   $('#tclr').onclick=()=>{if(confirm('Alle erledigten Aufgaben löschen?')){data.todos=data.todos.filter(x=>!x.done);save();draw()}};
   draw();
