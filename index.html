@@ -204,6 +204,54 @@ table.days th.l,table.days td.l{text-align:left}
   .card{padding:18px}
 }
 
+/* Startseite */
+.hello{padding:40px 4px 22px}.hello .eyebrow{font-size:15px}.hello h1{font-size:clamp(34px,6vw,52px);text-align:left}
+.home{display:grid;grid-template-columns:1.25fr 1fr;gap:16px;align-items:start}
+.hcol{display:flex;flex-direction:column;gap:16px}
+.hcol .card,.kpis .card{margin:0}
+.lab{font-size:13px;color:var(--muted);margin-bottom:8px}
+.today{display:flex;gap:26px;align-items:center}
+.ring{position:relative;width:160px;height:160px;flex:none}.ring svg{width:100%;height:100%}
+.ring .c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .c b{font-size:32px;letter-spacing:-.03em;font-variant-numeric:tabular-nums}.ring .c small{font-size:12px;color:var(--muted)}
+.tinfo{min-width:0;flex:1}.tinfo .big{font-size:clamp(22px,3vw,30px);font-weight:700;letter-spacing:-.02em;line-height:1.2}.tinfo .s{font-size:13px;color:var(--muted);margin-top:2px}
+.btns{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}.btns .btn{flex:1;min-width:120px;padding:11px 14px;font-weight:600}
+.hedit{margin-top:16px;padding-top:14px;border-top:1px solid var(--soft)}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.k .v{font-size:32px;font-weight:700;line-height:1.1;letter-spacing:-.03em;font-variant-numeric:tabular-nums}.k .v small{font-size:15px;color:var(--muted);font-weight:600}.k .s{font-size:12px;color:var(--muted);margin-top:6px}
+.spark{width:100%;height:34px;display:block;margin-top:6px}
+.ubar{height:8px;border-radius:99px;background:var(--soft);overflow:hidden;margin-top:14px}.ubar span{display:block;height:100%;background:var(--u);border-radius:99px}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.wd,.md{border:0;cursor:pointer;color:var(--text);background:var(--bg);font-variant-numeric:tabular-nums}
+.wd{border-radius:12px;padding:7px 0;text-align:center;font-size:12px}
+.wd b{display:block;font-size:16px;margin-top:2px}.wd i{display:block;font-style:normal;font-size:10px;font-weight:700;margin-top:3px}
+.wd.off,.md{color:var(--muted)}
+.wd.F,.md.F{background:var(--early-bg);color:var(--early)} .wd.S,.md.S{background:var(--late-bg);color:var(--late)}
+.wd.U,.wd.U2,.md.U,.md.U2{background:var(--u-bg);color:var(--u)} .wd.RU,.wd.RU2,.md.RU,.md.RU2{background:var(--ru-bg);color:var(--ru)}
+.wd.K,.md.K{background:var(--k-bg);color:var(--k)} .wd.koA,.md.koA{background:var(--koa-bg);color:var(--koa)} .wd.X,.md.X{background:var(--f-bg);color:var(--f)}
+.wd b{color:var(--text)} .wd.off b{color:var(--muted)}
+.wd.now,.md.now{outline:2px solid var(--blue);outline-offset:-2px}
+.mini{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.mini .mh{font-size:11px;color:var(--muted);font-weight:600;text-align:center;padding:2px 0}
+.md{border-radius:8px;padding:7px 0;font-size:13px;font-weight:600}
+.wbars{display:flex;align-items:flex-end;gap:10px;height:110px}
+.wb{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch}
+.wb span{display:block;border-radius:6px 6px 0 0}.wb span.p{background:color-mix(in srgb,var(--pos) 45%,var(--card))}.wb span.n{background:color-mix(in srgb,var(--neg) 35%,var(--card))}
+.wb em{font-style:normal;font-size:11px;color:var(--muted);text-align:center;margin-top:4px;white-space:nowrap}
+.tl{list-style:none;margin:0;padding:0}.tl li{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--soft);align-items:center}.tl li:last-child{border-bottom:0}
+.tl .dot{width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;flex:none}
+.tl .tt{display:block;font-size:15px}.tl .w{display:block;font-size:12px;color:var(--muted)}.tl .w.neg{color:var(--neg)}
+.mob{display:none}
+@media (max-width:900px){
+  .home{display:flex;flex-direction:column;gap:14px;align-items:stretch}
+  .hcol{display:contents}
+  .ho1{order:1}.ho2{order:2}.ho3{order:3}.ho4{order:4}
+  .dsk{display:none!important}.mob{display:revert}
+  .week.mob{display:grid}
+  .today{gap:18px}.ring{width:118px;height:118px}.ring .c b{font-size:24px}
+  .hello{padding:26px 4px 14px}
+  .kpis{gap:14px}.k .v{font-size:28px}
+}
 /* Jahresansicht */
 .ycal{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
 @media (max-width:900px){.ycal{grid-template-columns:repeat(3,minmax(0,1fr))}}
@@ -578,6 +626,7 @@ async function pAdmin(){
 /* ---------- Router ---------- */
 const view={year:null,month:null,calY:null,calM:null,calMode:'m'};
 function render(){
+  clearInterval(homeTimer);
   P45=data.settings.p45||'ist';
   if(!user){$('#app').innerHTML='<section class="hero"><h1>Arbeitszeit.</h1><p class="sub">Bitte melde dich an, um deine Zeiten zu sehen.</p><p style="margin-top:24px"><button class="btn" id="gl">Anmelden</button></p></section>';$('#gl').onclick=gate;return}
   if(user==='admin'){$$('nav a.tab').forEach(a=>a.classList.toggle('on',a.classList.contains('adm')));return pAdmin()}
@@ -593,57 +642,113 @@ function dayInfo(d){
   return {e,sh,soll,ist:istOf(e,soll),hn:e.hn||''};
 }
 function ensureYearSoft(d){return data.years[d.slice(0,4)]||{startGleitzeit:0,urlaub:30,sollMoDo:8.25,sollFr:8}}
+let homeTimer=null;
+const hhmm=m=>String(Math.floor(((m%1440)+1440)%1440/60)).padStart(2,'0')+':'+String(((m%1440)+1440)%1440%60).padStart(2,'0');
+function rowsBetween(from,to){const out=[];for(const y of new Set([from.slice(0,4),to.slice(0,4)]))if(data.years[y])out.push(...computeYear(data,y).rows.filter(r=>r.d>=from&&r.d<=to));return out}
+function absCls(i){const a=i.e.a;return a?(a==='F'?'X':ACL[a]):i.soll>0?i.sh:''}
+function absTxt(i){const a=i.e.a;return a?(a==='F'?'FT':a):i.soll>0?i.sh:''}
 function pStart(){
-  const t=today(), i=dayInfo(t);
-  const head=i.e.a==='F'&&i.hn?i.hn:i.e.a?ABSN[i.e.a]:i.soll>0?SHN[i.sh]:'Frei';
-  $('#app').innerHTML=`
-  <section class="hero">
-    <p class="eyebrow">${dLong(t)}</p>
-    <h1>${head}.</h1>
-    <p class="sub">KW ${kw(t)} ist eine ${SHN[i.sh]}-Woche${i.soll>0?' · Soll heute '+f2(i.soll)+' Std.':wd(t)===4?' · Freitag ist frei':''}</p>
-  </section>
-  <div class="card">
-    <h3>Heute erfassen</h3>
-    <div class="row">
-      <label class="f">Arbeitsbeginn<input type="time" id="hs" value="${i.e.s||''}"></label>
-      <label class="f">Arbeitsende<input type="time" id="he" value="${i.e.e||''}"></label>
-      <button class="btn" id="hin">Jetzt kommen</button>
-      <button class="btn sec" id="hout">Jetzt gehen</button>
-    </div>
-    <p class="muted small" id="hinfo" style="margin:14px 0 0"></p>
-  </div>
-  <div class="grid g4" id="stats"></div>
-  <h2>Demnächst.</h2>
-  <div class="card"><ul class="list" id="next"></ul></div>`;
-  const upd=()=>{
-    const t=today(), i=dayInfo(t), y=t.slice(0,4), c=computeYear(data,String(ensureYearKey(y)));
-    let s='';
-    if(i.e.s&&!i.e.e&&i.soll>0){const pz=Math.round((rawFor(i.soll)-i.soll)*60), m=(mins(i.e.s)+Math.round(rawFor(i.soll)*60)+(Number(i.e.p)||0))%1440;s=`Soll erreicht um <b>${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')} Uhr</b>${pz?` (inkl. ${pz} Min. Pause)`:''}. Der Tag zählt erst zur Gleitzeit, wenn das Ende eingetragen ist.`}
-    else if(i.e.s&&i.e.e)s=`Ist ${f2(i.ist)} Std. (abzügl. ${Math.round(pauseOf(i.e)*60)} Min. Pause) · Soll ${f2(i.soll)} Std. · <b class="${cls(i.ist-i.soll)}">${sg(i.ist-i.soll)} Std.</b>`;
-    else s='Noch keine Zeiten für heute eingetragen.';
-    $('#hinfo').innerHTML=s;
-    $('#stats').innerHTML=`
-      <div class="card stat"><div class="l">Gleitzeit gesamt</div><div class="v ${cls(c.end)}">${sg(c.end)}</div><div class="s">Stunden (${hm(c.end)})</div></div>
-      <div class="card stat"><div class="l">Urlaub ${y} übrig</div><div class="v">${dnum(c.rest)}</div><div class="s">von ${dnum(data.years[y].urlaub)} Tagen · ${dnum(c.tot.u)} verplant</div></div>
-      <div class="card stat"><div class="l">Resturlaub aus ${y-1}</div><div class="v ${c.restVJ<0?'neg':''}">${dnum(c.restVJ)}</div><div class="s">${Number(data.years[y].restVorjahr)?`von ${dnum(data.years[y].restVorjahr)} Tagen · ${dnum(c.tot.ru)} verplant`:'keine Tage übertragen'}</div></div>
-      <div class="card stat"><div class="l">Krankentage</div><div class="v">${dnum(c.tot.k+c.tot.koa)}</div><div class="s">${dnum(c.tot.k)} mit Attest · ${dnum(c.tot.koa)} ohne (k.o.A.)</div></div>`;
-  };
-  upd();
-  $('#hs').onchange=e=>{setDay(today(),{s:e.target.value});upd()};
-  $('#he').onchange=e=>{setDay(today(),{e:e.target.value});upd()};
-  $('#hin').onclick=()=>{$('#hs').value=nowHM();setDay(today(),{s:nowHM()});upd()};
-  $('#hout').onclick=()=>{$('#he').value=nowHM();setDay(today(),{e:nowHM()});upd()};
-  // Demnächst: Termine + Abwesenheiten (zusammengefasst)
-  const evh=(e,d)=>({d,t:e.time||'',h:`<span class="badge b-ev">Termin</span> ${esc(e.title)}${e.time?' · '+span(e)+' Uhr':''}${e.rep?' · '+REP[e.rep]:''}`});
-  const items=data.events.filter(e=>!e.rep&&e.date>=t).map(e=>evh(e,e.date));
-  for(let k=0,d=t;k<90;k++,d=addDays(d,1))for(const e of data.events)if(e.rep&&occurs(e,d))items.push(evh(e,d));
+  const t=today(), y=t.slice(0,4); ensureYear(y);
+  const c=computeYear(data,y), ys=data.years[y], i=dayInfo(t), mon=mondayOf(t), hr=new Date().getHours();
+  const greet=(hr<11?'Guten Morgen':hr<18?'Guten Tag':'Guten Abend')+(data.settings.name?', '+esc(data.settings.name):'')+'.';
+  // Wochenwerte der letzten 8 Wochen
+  const weeks=[];for(let k=7;k>=0;k--){const m=addDays(mon,-7*k), rs=rowsBetween(m,addDays(m,6)), past=rs.filter(r=>r.d<=t);
+    weeks.push({m,kw:kw(m),gz:past.reduce((a,r)=>a+r.gz,0),cum:past.length?past[past.length-1].cum:null})}
+  const cumNow=(c.rows.find(r=>r.d===t)||{cum:c.end}).cum, prev=weeks[6].cum, diff=prev==null?null:cumNow-prev;
+  const cv=weeks.map(w=>w.cum).filter(v=>v!=null), lo=Math.min(...cv), hi=Math.max(...cv), rg=(hi-lo)||1;
+  const spark=cv.length>1?`<svg class="spark" viewBox="0 0 120 34" preserveAspectRatio="none"><polyline fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" points="${cv.map((v,k)=>(k*120/(cv.length-1)).toFixed(1)+','+(30-(v-lo)/rg*26).toFixed(1)).join(' ')}"/></svg>`:'';
+  const mx=Math.max(.25,...weeks.map(w=>Math.abs(w.gz)));
+  const bars=weeks.map(w=>`<div class="wb" title="KW ${w.kw}: ${sg(w.gz)} Std."><span class="${w.gz>=0?'p':'n'}" style="height:${Math.max(4,Math.abs(w.gz)/mx*100)}%"></span><em>${w.m===mon?'KW '+w.kw:w.kw}</em></div>`).join('');
+  // Diese Woche
+  const wk=[...Array(7)].map((_,k)=>addDays(mon,k));
+  const wrs=rowsBetween(mon,addDays(mon,6)), wsoll=wrs.reduce((a,r)=>a+r.soll,0), wist=wrs.filter(r=>r.d<=t&&(r.a||!r.open)).reduce((a,r)=>a+r.ist,0);
+  const strip=wk.map(d=>{const di=dayInfo(d);return `<button class="wd ${absCls(di)} ${d===t?'now':''} ${di.soll>0||di.e.a?'':'off'}" data-d="${d}" title="${esc(dLong(d))}">${DOW[wd(d)]}<b>${Number(d.slice(8))}</b><i>${absTxt(di)||'&nbsp;'}</i></button>`}).join('');
+  // Monat (Browser)
+  const pre=t.slice(0,7), nd=new Date(Date.UTC(Number(y),Number(t.slice(5,7)),0)).getUTCDate();
+  let month=DOW.map(d=>`<span class="mh">${d}</span>`).join('')+'<span></span>'.repeat(wd(pre+'-01'));
+  for(let k=1;k<=nd;k++){const d=pre+'-'+String(k).padStart(2,'0'), di=dayInfo(d);month+=`<button class="md ${absCls(di)} ${d===t?'now':''}" data-d="${d}" title="${esc(dShort(d)+' '+(di.e.a?absLabel(di.e.a,di):di.soll>0?SHN[di.sh]:'frei'))}">${k}</button>`}
+  // Demnächst
+  const items=[], ic={ev:['📅','var(--ev-bg)'],U:['🌴','var(--u-bg)'],U2:['🌴','var(--u-bg)'],RU:['🌴','var(--ru-bg)'],RU2:['🌴','var(--ru-bg)'],K:['🩺','var(--k-bg)'],koA:['🩺','var(--koa-bg)'],Ft:['🎉','var(--f-bg)']};
+  const evi=(e,d)=>items.push({d,t:e.time||'',ico:ic.ev,tt:esc(e.title),w:`${DOW[wd(d)]} ${dShort(d)}${e.time?' · '+span(e):''}${e.rep?' · '+REP[e.rep]:''}`});
+  data.events.filter(e=>!e.rep&&e.date>=t).forEach(e=>evi(e,e.date));
+  for(let k=0,d=t;k<90;k++,d=addDays(d,1))for(const e of data.events)if(e.rep&&occurs(e,d))evi(e,d);
   const ds=Object.keys(data.days).filter(d=>d>=t&&data.days[d].a&&data.days[d].a!=='F').sort();
   for(let k=0;k<ds.length;){let j=k;while(j+1<ds.length&&data.days[ds[j+1]].a===data.days[ds[k]].a&&(pd(ds[j+1])-pd(ds[j]))/DAY<=4)j++;
-    const a=data.days[ds[k]].a;items.push({d:ds[k],t:'',h:`<span class="badge a-${ACL[a]}">${ABSN[a]}</span>${j>k?' bis '+dShort(ds[j])+ds[j].slice(0,4):''}`});k=j+1}
-  for(const x of data.todos)if(!x.done&&x.due)items.push({d:x.due<t?t:x.due,t:'',h:`<span class="badge b-td">Aufgabe</span> ${esc(x.title)}${x.due<t?' · <b class="neg">überfällig seit '+dShort(x.due)+'</b>':''}`});
-  items.sort((a,b)=>(a.d+a.t).localeCompare(b.d+b.t));
-  $('#next').innerHTML=items.slice(0,8).map(x=>`<li><span class="d">${DOW[wd(x.d)]}, ${dShort(x.d)}</span><span class="x">${x.h}</span></li>`).join('')
-    ||'<li class="muted">Keine Termine oder Abwesenheiten geplant. <a href="#/kalender" style="margin-left:6px">Zum Kalender</a></li>';
+    const a=data.days[ds[k]].a, n=j-k+1;items.push({d:ds[k],t:'',ico:ic[ACL[a]],tt:ABSN[a]+(n>1?` · ${n} Tage`:''),w:`${DOW[wd(ds[k])]} ${dShort(ds[k])}${j>k?' – '+DOW[wd(ds[j])]+' '+dShort(ds[j]):''}`});k=j+1}
+  for(const yy of [y,String(Number(y)+1)])for(const [d,n] of Object.entries(holidays(yy,data.settings.land)))if(d>=t&&d<=addDays(t,60))items.push({d,t:'',ico:ic.Ft,tt:esc(n),w:`${DOW[wd(d)]} ${dShort(d)} · Feiertag`});
+  const todos=data.todos.filter(x=>!x.done).sort((a,b)=>((9-(Number(a.prio)||0))+(a.due||'9999')).localeCompare((9-(Number(b.prio)||0))+(b.due||'9999')));
+  const tico=x=>Number(x.prio)===3?['!','var(--k-bg)','var(--k)']:Number(x.prio)===2?['•','var(--koa-bg)','var(--koa)']:Number(x.prio)===1?['•','var(--u-bg)','var(--u)']:['✓','var(--soft)','var(--text)'];
+  const tdue=x=>x.due?(x.due<t?'überfällig seit '+dShort(x.due):x.due===t?'heute fällig':x.due===addDays(t,1)?'fällig morgen':'fällig '+dShort(x.due)):'';
+  const tw=x=>[x.prio?PRIO[x.prio][1]:'',tdue(x)].filter(Boolean).join(' · ')||'Keine Prio';
+  const tItems=todos.filter(x=>x.due).map(x=>({d:x.due<t?t:x.due,t:'',todo:1,ico:tico(x),tt:esc(x.title),w:'Aufgabe · '+tw(x),late:x.due<=addDays(t,1)}));
+  const li=x=>`<li class="${x.todo?'td':''}"><span class="dot" style="background:${x.ico[1]};${x.ico[2]?'color:'+x.ico[2]:''}">${x.ico[0]}</span><span><span class="tt">${x.tt}</span><span class="w ${x.late?'neg':''}">${x.w}</span></span></li>`;
+  const srt=a=>a.sort((p,q)=>(p.d+p.t).localeCompare(q.d+q.t));
+  const nextMob=srt([...items,...tItems]).slice(0,6), nextDsk=srt(items).slice(0,6);
+  const none='<li class="muted small">Nichts geplant. <a href="#/kalender">Zum Kalender</a></li>';
+  $('#app').innerHTML=`
+  <section class="hello"><p class="eyebrow">${dLong(t)} · KW ${kw(t)} · ${SHN[i.sh]}-Woche</p><h1>${greet}</h1></section>
+  <div class="home">
+    <div class="hcol">
+      <div class="card ho1" id="htoday"></div>
+      <div class="card ho5 dsk"><div class="lab">Gleitzeit je Woche (letzte 8 Wochen)</div><div class="wbars">${bars}</div></div>
+      <div class="card ho4"><div class="lab">Demnächst</div><ul class="tl mob">${nextMob.map(li).join('')||none}</ul><ul class="tl dsk">${nextDsk.map(li).join('')||none}</ul></div>
+    </div>
+    <div class="hcol">
+      <div class="kpis ho3">
+        <div class="card k"><div class="lab">Gleitzeit</div><div class="v ${cls(c.end)}">${sg(c.end)}</div><div class="${cls(c.end)||'muted'}">${spark}</div><div class="s">${diff==null?'Stunden':(diff>=0?'+':'−')+f2(Math.abs(diff))+' seit letzter Woche'}</div></div>
+        <div class="card k"><div class="lab">Urlaub ${y}</div><div class="v ${c.rest<0?'neg':''}">${dnum(c.rest)} <small>übrig</small></div><div class="ubar"><span style="width:${Math.min(100,(c.tot.u/(Number(ys.urlaub)||1))*100)}%"></span></div><div class="s">${dnum(c.tot.u)} von ${dnum(ys.urlaub)} verplant${Number(ys.restVorjahr)?' · Resturlaub '+dnum(c.restVJ):''}</div></div>
+      </div>
+      <div class="card ho2"><div class="lab"><span class="mob">Diese Woche</span><span class="dsk">${MON[Number(t.slice(5,7))-1]} ${y}</span></div>
+        <div class="week mob">${strip}</div><div class="mini dsk">${month}</div>
+        <div class="lab" style="margin:12px 0 0">Woche: ${hm(wist)} von ${hm(wsoll)} Std. · nächste Woche ${SHN[shiftOf(addDays(t,7),data.settings)]}</div></div>
+      <div class="card ho6 dsk"><div class="lab">Offene Aufgaben · ${todos.length}</div><ul class="tl">${todos.slice(0,5).map(x=>li({ico:tico(x),tt:esc(x.title),w:tw(x),late:x.due&&x.due<=addDays(t,1)})).join('')||'<li class="muted small">Keine offenen Aufgaben.</li>'}</ul>${todos.length>5?'<a class="small" href="#/aufgaben">Alle Aufgaben</a>':''}</div>
+    </div>
+  </div>`;
+  $$('.wd,.md').forEach(b=>b.onclick=()=>dayDialog(b.dataset.d));
+  homeToday();
+  clearInterval(homeTimer);
+  homeTimer=setInterval(()=>{if($('#htoday')&&!$('#dlg').open&&!$('#htoday').contains(document.activeElement))homeToday()},30000);
+}
+function homeToday(edit){
+  const box=$('#htoday'); if(!box)return;
+  const t=today(), i=dayInfo(t), e=data.days[t]||{}, soll=i.soll, p=Number(e.p)||0, nowM=mins(nowHM());
+  const clock=m=>{m=((m%1440)+1440)%1440;return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')};
+  const pzSoll=Math.round((rawFor(soll)-soll)*60)+p;
+  let net=0, state='none';
+  if(e.s&&e.e){net=i.ist;state='done'}
+  else if(e.s){const raw=((nowM-mins(e.s))+1440)%1440/60;net=Math.max(0,raw-legalPause(raw)-p/60);state='open'}
+  const frac=soll?Math.min(1,net/soll):(net>0?1:0), reached=soll>0&&net>=soll;
+  let lab=`Heute · ${i.e.a?absLabel(i.e.a,i):soll>0?SHN[i.sh]+' · Soll '+hm(soll):'frei'}`, info='', btns='';
+  if(i.e.a&&!e.s){
+    const ico=i.e.a==='F'?'🎉':i.e.a.startsWith('U')||i.e.a.startsWith('RU')?'🌴':'🩺';
+    info=`<div class="s">Heute eingetragen</div><div class="big">${ico} ${esc(absLabel(i.e.a,i))}</div><div class="s">Der Tag zählt mit dem Soll – keine Zeiten nötig.</div>`;
+    btns=`<button class="btn sec" data-h="edit">Trotzdem Zeiten eintragen</button>`;
+  }else if(state==='none'){
+    info=`<div class="s">Noch nicht eingestempelt</div><div class="big">${soll>0?'Feierabend '+clock(nowM+Math.round(rawFor(soll)*60)+p):'Heute frei'}</div><div class="s">${soll>0?`wenn du jetzt beginnst · inkl. ${pzSoll} Min. Pause`:'Kein Soll für heute'}</div>`;
+    btns=`<button class="btn" data-h="in">Jetzt kommen</button><button class="btn sec" data-h="edit">Zeiten eintragen</button>`;
+  }else if(state==='open'){
+    const fe=mins(e.s)+Math.round(rawFor(soll)*60)+p, rest=((fe-nowM)%1440+1440)%1440;
+    info=`<div class="s">Gekommen ${e.s}</div><div class="big">${soll>0?'Feierabend '+clock(fe):'Heute frei'}</div><div class="s">${soll>0?(reached?`Soll erreicht · ${sg(net-soll)} Std.`:`noch ${hm(rest/60)} Std. · inkl. ${pzSoll} Min. Pause`):'Zeit zählt komplett als Plus'}</div>`;
+    btns=`<button class="btn sec" data-h="edit">Kommen ✓ ${e.s}</button><button class="btn" data-h="out">Jetzt gehen</button>`;
+  }else{
+    const gz=net-soll;
+    info=`<div class="s">${e.s} – ${e.e} · Pause ${Math.round(pauseOf(e)*60)} Min.</div><div class="big ${cls(gz)}">${sg(gz)} Std.</div><div class="s">Tagesgleitzeit · Ist ${f2(net)} von ${f2(soll)} Std.</div>`;
+    btns=`<button class="btn sec" data-h="edit">Gegangen ✓ ${e.e}</button>`;
+  }
+  const C=314.16, showRing=!(i.e.a&&!e.s);
+  box.innerHTML=`<div class="lab">${lab}</div>
+    <div class="today">${showRing?`<div class="ring"><svg viewBox="0 0 118 118"><circle cx="59" cy="59" r="50" fill="none" stroke="var(--soft)" stroke-width="10"/><circle cx="59" cy="59" r="50" fill="none" stroke="${reached?'var(--pos)':'var(--blue)'}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${(C*(1-frac)).toFixed(1)}" transform="rotate(-90 59 59)"/></svg>
+      <div class="c"><b>${hm(net)}</b><small>${soll>0?'von '+hm(soll):'heute frei'}</small></div></div>`:''}
+      <div class="tinfo">${info}<div class="btns">${btns}</div></div></div>
+    <div class="hedit" ${edit?'':'hidden'}><div class="row">
+      <label class="f">Arbeitsbeginn<input type="time" id="hs" value="${e.s||''}"></label>
+      <label class="f">Arbeitsende<input type="time" id="he" value="${e.e||''}"></label>
+      <label class="f">Zusatzpause (Min.)<input type="number" id="hp" min="0" step="1" inputmode="numeric" value="${e.p||''}"></label></div></div>`;
+  const upd=patch=>{setDay(today(),patch);homeToday(edit)};
+  $$('#htoday [data-h]').forEach(b=>b.onclick=()=>{const h=b.dataset.h;
+    if(h==='in')upd({s:nowHM()}); else if(h==='out')upd({e:nowHM()}); else {edit=!edit;homeToday(edit);if(edit)$('#hs').focus()}});
+  $('#hs').onchange=ev=>upd({s:ev.target.value}); $('#he').onchange=ev=>upd({e:ev.target.value});
+  $('#hp').onchange=ev=>upd({p:ev.target.value===''?'':Number(ev.target.value)});
 }
 function ensureYearKey(y){ensureYear(y);return y}
 
@@ -867,17 +972,17 @@ function dayDialog(d,msg,keepTo){
     let n=0;
     for(let x=d;x<=to;x=addDays(x,1)){const j=dayInfo(x);if(x!==d&&(sollOf(x,ensureYear(x.slice(0,4)),data.settings)===0||j.e.a==='F'))continue;setDay(x,{a:v});n++}
     if(to.slice(0,7)!==d.slice(0,7)&&view.calMode!=='y'){view.calY=Number(d.slice(0,4));view.calM=Number(d.slice(5,7))-1}
-    pKalender(); dayDialog(d,(v?ABSN[v]+' eingetragen':'Abwesenheit entfernt')+' für '+n+(n===1?' Tag':' Tage')+' bis '+dShort(to)+to.slice(0,4)+'.',to);
+    render(); dayDialog(d,(v?ABSN[v]+' eingetragen':'Abwesenheit entfernt')+' für '+n+(n===1?' Tag':' Tage')+' bis '+dShort(to)+to.slice(0,4)+'.',to);
   };
   $$('#dlgc [data-a]').forEach(b=>b.onclick=()=>{
     const to=$('#dto').value, v=b.dataset.a;
     if(to&&to>d)return range(v,to);
-    setDay(d,{a:v}); pKalender(); dayDialog(d);
+    setDay(d,{a:v}); render(); dayDialog(d);
   });
   $('#dto').onchange=()=>{const to=$('#dto').value, cur=(data.days[d]||{}).a; if(to&&to>d&&cur)range(cur,to)};
-  $$('#dlgc [data-del]').forEach(b=>b.onclick=()=>{data.events=data.events.filter(e=>e.id!==b.dataset.del);save();pKalender();dayDialog(d)});
+  $$('#dlgc [data-del]').forEach(b=>b.onclick=()=>{data.events=data.events.filter(e=>e.id!==b.dataset.del);save();render();dayDialog(d)});
   $('#er').onchange=()=>{$('#eul').hidden=!$('#er').value};
-  $$('#dlgc [data-del1]').forEach(b=>b.onclick=()=>{const e=data.events.find(e=>e.id===b.dataset.del1);(e.ex=e.ex||[]).push(d);save();pKalender();dayDialog(d)});
+  $$('#dlgc [data-del1]').forEach(b=>b.onclick=()=>{const e=data.events.find(e=>e.id===b.dataset.del1);(e.ex=e.ex||[]).push(d);save();render();dayDialog(d)});
   let editId=null;
   $$('#dlgc [data-ed]').forEach(b=>b.onclick=()=>{const e=data.events.find(e=>e.id===b.dataset.ed); editId=e.id;
     $('#et').value=e.title;$('#eh').value=e.time||'';$('#ee').value=e.end||'';$('#er').value=e.rep||'';$('#eu').value=e.until||'';$('#eul').hidden=!e.rep;
@@ -888,7 +993,7 @@ function dayDialog(d,msg,keepTo){
     if(editId){const e=data.events.find(e=>e.id===editId);Object.assign(e,v);
       if(r){e.rep=r;e.until=$('#eu').value>=e.date?$('#eu').value:''}else{delete e.rep;delete e.until;delete e.ex;if(!occurs(e,d))e.date=d}}
     else data.events.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),date:d,...v,...(r?{rep:r,until:$('#eu').value>=d?$('#eu').value:''}:{})});
-    save();pKalender();dayDialog(d)};
+    save();render();dayDialog(d)};
   $('#ea').onclick=add; $('#et').onkeydown=e=>{if(e.key==='Enter')add()};
   $('#dok').onclick=closeDlg;
   $('#toz').onclick=()=>{view.year=d.slice(0,4);view.month=Number(d.slice(5,7))-1;ensureYear(view.year);closeDlg()};
@@ -1034,7 +1139,11 @@ function openSettings(){
         <button class="btn sec" id="zb">Zugangsdatei erstellen</button>
       </div><p class="small muted" id="zm" style="margin:8px 0 0"></p>
     </div>`:''}
-    ${isUser()?`<div class="sect"><div class="t">Schichtrhythmus</div>
+    ${isUser()?`<div class="sect"><div class="t">Begrüßung</div><label class="f">Dein Name (optional)<input id="snm" maxlength="30" value="${esc(s.name||'')}" placeholder="z. B. Lisa"></label></div>
+    <div class="sect"><div class="t">Begrüßung</div>
+      <label class="f">Dein Vorname (optional)<input id="snm" value="${esc(s.name||'')}" maxlength="30" autocomplete="given-name"></label>
+    </div>
+    <div class="sect"><div class="t">Schichtrhythmus</div>
       <div class="row">
         <label class="f">Montag einer bekannten Woche<input type="date" id="sa" value="${s.anchor}"></label>
         <label class="f">Schicht in dieser Woche<select id="ss"><option value="F" ${s.anchorShift==='F'?'selected':''}>Frühschicht</option><option value="S" ${s.anchorShift==='S'?'selected':''}>Spätschicht</option></select></label>
@@ -1084,7 +1193,9 @@ function openSettings(){
   if(!isUser())return;
   const sh=()=>{const v=$('#sa').value;if(!v)return;data.settings.anchor=mondayOf(v);data.settings.anchorShift=$('#ss').value;$('#sa').value=data.settings.anchor;save()};
   $('#sa').onchange=sh;$('#ss').onchange=sh;
+  $('#snm').onchange=()=>{data.settings.name=$('#snm').value.trim();save()};
   $('#sl').onchange=()=>{data.settings.land=$('#sl').value;save()};
+  $('#snm').onchange=()=>{const v=$('#snm').value.trim();if(v)data.settings.name=v;else delete data.settings.name;save()};
   $('#sp45').onchange=()=>{data.settings.p45=$('#sp45').value;P45=data.settings.p45;save()};
   $('#si').onclick=()=>$('#sf').click();
   $('#sf').onchange=async e=>{const f=e.target.files[0];if(!f)return;
