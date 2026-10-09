@@ -141,22 +141,35 @@ tr.sum td{font-weight:600;border-top:1px solid var(--line);border-bottom:0}
 .dr .pz{display:block;font-size:10.5px;color:var(--muted);line-height:1.2;overflow-wrap:anywhere}
 .dr input[type=time]{min-width:0}
 .dr.dsum{grid-template-columns:1fr 54px 50px 66px 66px;border-bottom:0;padding-top:10px}
-@media (min-width:1001px){.dr.dsum{grid-template-columns:96px 56px 96px minmax(90px,1fr) minmax(90px,1fr) 74px 54px 50px 78px 70px 66px}.dr.dsum .c-date{grid-column:1/7}.dr.dsum .c-ist{grid-column:7}.dr.dsum .c-soll{grid-column:8}.dr.dsum .c-gz{grid-column:10}.dr.dsum .c-cum{grid-column:11}}
+.dr.dsum{grid-template-columns:96px 56px 96px minmax(90px,1fr) minmax(90px,1fr) 74px 54px 50px 78px 70px 66px}.dr.dsum .c-date{grid-column:1/7}.dr.dsum .c-ist{grid-column:7}.dr.dsum .c-soll{grid-column:8}.dr.dsum .c-gz{grid-column:10}.dr.dsum .c-cum{grid-column:11}
+.dr.dsum .ml{display:none}
+/* Wochen-Trenner */
+.dweek{display:flex;gap:8px;align-items:center;font-size:12px;font-weight:600;color:var(--muted);padding:14px 0 4px;text-transform:uppercase;letter-spacing:.04em}
+.dweek:first-child{padding-top:4px}
+.dweek .badge{text-transform:none;letter-spacing:0}
+/* Handy/kleine Fenster: jeder Tag als eigene Karte */
 @media (max-width:1000px){
-  .dlist{padding:4px 12px}
+  .card.dlist{background:none;padding:0}
+  .dweek{padding:18px 4px 6px}
   .dr.dh{display:none}
-  .dr{grid-template-columns:repeat(12,minmax(0,1fr));grid-template-areas:"date date date date date sh sh ab ab ab ab ab" "s s s s s s e e e e e e" "p p p k k k ist ist gz gz cum cum";gap:6px;padding:12px 0}
-  .dr .c-soll{display:none} .dr .msoll{display:block}
-  .c-date{grid-area:date}.c-sh{grid-area:sh;text-align:right}.c-ab{grid-area:ab}.c-s{grid-area:s}.c-e{grid-area:e}.c-p{grid-area:p}.c-k{grid-area:k}.c-ist{grid-area:ist}.c-soll{grid-area:soll}.c-gz{grid-area:gz}.c-cum{grid-area:cum}
+  .dr{background:var(--card);border-radius:16px;border:0;border-left:5px solid var(--line);margin-bottom:10px;padding:12px 12px 12px 12px;
+      grid-template-columns:repeat(12,minmax(0,1fr));grid-template-areas:"date date date date date date sh sh ab ab ab ab" "s s s s s s e e e e e e" "p p p k k k ist ist gz gz cum cum";gap:8px 6px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  .dr.sF{border-left-color:var(--early)} .dr.sS{border-left-color:var(--late)}
+  .dr.today{box-shadow:0 0 0 2px var(--blue)}
+  .c-date{grid-area:date;align-self:center}.c-sh{grid-area:sh;text-align:right;align-self:center}.c-ab{grid-area:ab}.c-s{grid-area:s}.c-e{grid-area:e}.c-p{grid-area:p}.c-k{grid-area:k}.c-ist{grid-area:ist}.c-soll{grid-area:soll}.c-gz{grid-area:gz}.c-cum{grid-area:cum}
+  .dr .c-date b{font-size:19px;letter-spacing:-.02em;color:var(--text)}
+  .dr.we .c-date b{color:var(--muted)}
+  .dr .c-soll{display:none} .dr .msoll{display:block;font-size:12px}
   .dr .ml{display:block;font-size:11px;color:var(--muted);text-align:left;margin-bottom:2px}
-  .dr .n{text-align:left;font-size:14px}
+  .dr .n{text-align:left;font-size:15px;font-weight:600}
   .dr input,.dr select{padding:5px 6px;font-size:16px}
-  .dr.empty{grid-template-areas:"date date date date date sh sh add add add add add"}
-  .dr.empty .c-ab,.dr.empty .c-s,.dr.empty .c-e,.dr.empty .c-p,.dr.empty .c-k,.dr.empty .c-ist,.dr.empty .c-soll,.dr.empty .c-gz,.dr.empty .c-cum{display:none}
-  .dr.empty .xadd{display:block;grid-area:add;padding:4px 0;font-size:14px;text-align:right}
-  .dr.empty{padding:6px 0}
-  .dr.dsum{grid-template-columns:repeat(4,minmax(0,1fr));grid-template-areas:"date date date date" "ist soll gz cum"}
-  .dr.dsum .c-soll{display:block}
+  .dr.empty{grid-template-areas:"date date date date date date sh sh add add add add";padding:8px 12px;border-left-color:transparent;background:color-mix(in srgb,var(--card) 55%,var(--bg));box-shadow:none;margin-bottom:6px}
+  .dr.empty .c-date b{font-size:15px}
+  .dr.empty .c-ab,.dr.empty .c-s,.dr.empty .c-e,.dr.empty .c-p,.dr.empty .c-k,.dr.empty .c-ist,.dr.empty .c-soll,.dr.empty .c-gz,.dr.empty .c-cum,.dr.empty .msoll{display:none}
+  .dr.empty .xadd{display:block;grid-area:add;padding:2px 0;font-size:14px;text-align:right}
+  .dr.dsum{grid-template-columns:repeat(4,minmax(0,1fr));grid-template-areas:"date date date date" "ist soll gz cum";border-left-color:var(--blue);margin-top:8px}
+  .dr.dsum .c-date,.dr.dsum .c-ist,.dr.dsum .c-soll,.dr.dsum .c-gz,.dr.dsum .c-cum{grid-column:auto}
+  .dr.dsum .c-soll{display:block} .dr.dsum .ml{display:block}
 }
 table.ov .smx{display:none}
 @media (max-width:640px){table.ov .xs{display:none} table.ov .lgx{display:none} table.ov .smx{display:inline} table.ov td{padding:7px 3px;font-size:13px} table.ov th{padding:6px 3px;font-size:11px} .ovcard{padding:16px 12px}}
@@ -719,7 +732,8 @@ function drawMonth(){
   const cell=(lab,inner,cl)=>`<div class="dc ${cl}"><span class="ml">${lab}</span>${inner}</div>`;
   $('#dt').innerHTML=`<div class="dr dh"><div class="dc c-date">Datum</div><div class="dc c-sh">Schicht</div><div class="dc c-ab">Abwesenheit</div><div class="dc c-s">Beginn</div><div class="dc c-e">Ende</div><div class="dc c-p">Zusatzpause</div><div class="dc c-ist n">Ist</div><div class="dc c-soll n">Soll</div><div class="dc c-k">Korrektur</div><div class="dc c-gz n">Gleitzeit Tag</div><div class="dc c-cum n">Gesamt</div></div>`+
   rows.map(r=>{const e=data.days[r.d]||{}, w=wd(r.d), off=r.soll===0&&!e.a&&!e.s&&!e.e&&!e.k&&!e.p;
-    return `<div class="dr ${w>4||r.hn?'we':''} ${r.d===t?'today':''} ${off?'empty':''}" data-d="${r.d}">
+    const wk=(w===0||r.d.endsWith('-01'))?`<div class="dweek">KW ${kw(r.d)}<span class="badge b-${r.shift}">${SHN[r.shift]}</span></div>`:'';
+    return wk+`<div class="dr ${w>4||r.hn?'we':''} ${r.d===t?'today':''} ${off?'empty':''} ${r.soll>0&&!r.a?'s'+r.shift:''}" data-d="${r.d}">
       <div class="dc c-date"><b>${DOW[w]} ${dShort(r.d)}</b>${r.hn?`<span class="note hn">${esc(r.hn)}</span>`:''}${r.soll?`<span class="msoll">Soll ${f2(r.soll)} Std.</span>`:''}</div>
       <div class="dc c-sh"><span class="badge b-${r.soll>0?r.shift:'0'}">${r.soll>0?(r.shift==='F'?'Früh':'Spät'):'frei'}</span></div>
       ${cell('Abwesenheit',`<select data-k="a" aria-label="Abwesenheit" title="${r.hn?esc(r.hn):''}"><option value="">${r.hn&&!e.a?'F (auto)':'–'}</option>${ABS.map(a=>`<option value="${a[0]}" ${e.a===a[0]?'selected':''}>${a[0]}</option>`).join('')}</select>`,'c-ab')}
