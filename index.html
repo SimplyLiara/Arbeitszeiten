@@ -745,7 +745,7 @@ function refreshZ(){
     if(r.open){ic.innerHTML=r.d===today()?'<span class="badge b-ev">läuft</span>':'<span class="badge a-koA" title="Ohne Arbeitsende zählt der Tag nicht zur Gleitzeit">Ende fehlt</span>'}
     else ic.textContent=r.ist?f2(r.ist):act?f2(0):'';
     ic.title=r.pause?'abzügl. '+Math.round(r.pause*60)+' Min. Pause':'';
-    if(!r.open&&r.pause){const pz=Math.round(r.pause*60), zp=Number(e.p)||0;ic.insertAdjacentHTML('beforeend',`<span class="pz">${hm(r.ist)} · Pause ${pz}${zp?` (${pz-zp}+${zp})`:''}</span>`)}
+    if(!r.open&&r.pause){const pz=Math.round(r.pause*60), zp=Number(e.p)||0;ic.insertAdjacentHTML('beforeend',`<span class="pz">Pause ${pz}${zp?` (${pz-zp}+${zp})`:''}</span>`)}
     $('[data-c=soll]',tr).textContent=r.soll?f2(r.soll):'';
     const g=$('[data-c=gz]',tr);g.textContent=act?sg(r.gz):'';g.className=act?cls(r.gz):'';
     const cu=$('[data-c=cum]',tr);cu.textContent=sg(r.cum);cu.className=cls(r.cum);
