@@ -135,6 +135,7 @@ tr.sum td{font-weight:600;border-top:1px solid var(--line);border-bottom:0}
 .dr input,.dr select{min-height:40px;padding:5px 8px;font-size:15px;border-radius:9px;width:100%}
 .dr .xadd{display:none}
 .dr .msoll{display:none;font-size:11px;color:var(--muted)}
+.dr .pz{display:block;font-size:10.5px;color:var(--muted);line-height:1.2;overflow-wrap:anywhere}
 .dr input[type=time]{min-width:0}
 .dr.dsum{grid-template-columns:1fr 54px 50px 66px 66px;border-bottom:0;padding-top:10px}
 @media (min-width:1001px){.dr.dsum{grid-template-columns:96px 56px 96px minmax(90px,1fr) minmax(90px,1fr) 74px 54px 50px 78px 70px 66px}.dr.dsum .c-date{grid-column:1/7}.dr.dsum .c-ist{grid-column:7}.dr.dsum .c-soll{grid-column:8}.dr.dsum .c-gz{grid-column:10}.dr.dsum .c-cum{grid-column:11}}
@@ -265,17 +266,18 @@ function sollOf(s,ys,st){
 // Pausenregel mit festen Grenzen:
 //  - Anwesenheit bis genau 6:00 -> keine Pause, ab 6:01 -> 30 Min.
 //  - 45 Min. (also 15 Min. mehr), sobald die Arbeitszeit über 9:00 liegt.
-//    P45='ist': Arbeitszeit = Anwesenheit − 30 Min. − Zusatzpause (Bsp. 06:00–15:05 -> 8:35 -> 30 Min.)
+//    P45='ist': Arbeitszeit nach den 30 Min. über 9:00, also Anwesenheit ab 9:31 (Bsp. 06:00–15:05 -> 30 Min.)
 //    P45='raw': Anwesenheit über 9:00 (Bsp. 06:00–15:05 -> 45 Min.)
+//  Die Zusatzpause verschiebt diese Grenzen NICHT, sie wird immer Minute für Minute zusätzlich abgezogen.
 let P45='ist';
-function legalPause(raw,p){
+function legalPause(raw){
   const m=Math.round(raw*60); if(m<=360)return 0;
-  const over9=P45==='raw'?m>540:(m-30-(Number(p)||0))>540;
+  const over9=P45==='raw'?m>540:(m-30)>540;
   return over9?0.75:0.5;
 }
 const rawOf=e=>(e&&e.s&&e.e)?((mins(e.e)-mins(e.s)+1440)%1440)/60:0;
 // Abgezogen wird immer: Pause nach Regel + eingetragene Zusatzpause (Beispiel 10 Std. mit Zusatz 10 -> 45 + 10 = 55 Min.)
-function pauseOf(e){const r=rawOf(e);if(!r)return 0;return legalPause(r,e.p)+(Number(e.p)||0)/60}
+function pauseOf(e){const r=rawOf(e);if(!r)return 0;return legalPause(r)+(Number(e.p)||0)/60}
 function workedOf(e){
   if(!e||!e.s||!e.e)return 0;
   return Math.max(0,rawOf(e)-pauseOf(e));
@@ -743,6 +745,7 @@ function refreshZ(){
     if(r.open){ic.innerHTML=r.d===today()?'<span class="badge b-ev">läuft</span>':'<span class="badge a-koA" title="Ohne Arbeitsende zählt der Tag nicht zur Gleitzeit">Ende fehlt</span>'}
     else ic.textContent=r.ist?f2(r.ist):act?f2(0):'';
     ic.title=r.pause?'abzügl. '+Math.round(r.pause*60)+' Min. Pause':'';
+    if(!r.open&&r.pause){const pz=Math.round(r.pause*60), zp=Number(e.p)||0;ic.insertAdjacentHTML('beforeend',`<span class="pz">${hm(r.ist)} · Pause ${pz}${zp?` (${pz-zp}+${zp})`:''}</span>`)}
     $('[data-c=soll]',tr).textContent=r.soll?f2(r.soll):'';
     const g=$('[data-c=gz]',tr);g.textContent=act?sg(r.gz):'';g.className=act?cls(r.gz):'';
     const cu=$('[data-c=cum]',tr);cu.textContent=sg(r.cum);cu.className=cls(r.cum);
@@ -1018,7 +1021,7 @@ function openSettings(){
     </div>
     <div class="sect"><div class="t">Pausenregel</div>
       <label class="f">45 Min. Pause ab …<select id="sp45"><option value="ist" ${(s.p45||'ist')==='ist'?'selected':''}>über 9 Std. Arbeitszeit (nach Abzug der 30 Min.)</option><option value="raw" ${s.p45==='raw'?'selected':''}>über 9 Std. Anwesenheit</option></select></label>
-      <p class="note" style="margin:6px 0 0">Beispiel 06:00–15:05: „Arbeitszeit“ → 30 Min. Pause, Ist 8:35 · „Anwesenheit“ → 45 Min. Pause, Ist 8:20. Bis 6:00 Anwesenheit keine Pause, ab 6:01 30 Min. Eine Zusatzpause wird immer zusätzlich abgezogen.</p>
+      <p class="note" style="margin:6px 0 0">Beispiel 06:00–15:05: „Arbeitszeit“ → 30 Min. Pause, Ist 8:35 · „Anwesenheit“ → 45 Min. Pause, Ist 8:20. Bis 6:00 Anwesenheit keine Pause, ab 6:01 30 Min. Eine Zusatzpause wird immer Minute für Minute zusätzlich abgezogen und verschiebt die Grenzen nicht.</p>
     </div>
     <div class="sect"><div class="t">Feiertage</div>
       <label class="f">Bundesland<select id="sl"><option value="">Keine automatischen Feiertage</option>${Object.entries(LAENDER).map(([k,v])=>`<option value="${k}" ${s.land===k?'selected':''}>${v}</option>`).join('')}</select></label>
