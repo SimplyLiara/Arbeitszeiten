@@ -154,6 +154,20 @@ table.days th.l,table.days td.l{text-align:left}
   .card{padding:18px}
 }
 
+/* Jahresansicht */
+.ycal{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+@media (max-width:900px){.ycal{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:640px){.ycal{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
+.ym{background:var(--card);border-radius:16px;padding:12px}
+.ymh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;font-size:15px;gap:6px}
+.yg{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}
+.yd{font-size:10px;color:var(--muted);text-align:center}
+.yc{border:0;background:none;padding:0;aspect-ratio:1;border-radius:6px;font-size:11px;cursor:pointer;font-variant-numeric:tabular-nums;color:var(--text);position:relative}
+.yc.off{color:var(--muted)}
+.yc.today{outline:2px solid var(--blue);outline-offset:-2px}
+.yc.abs-U,.yc.abs-U2{background:var(--u-bg);color:var(--u);font-weight:700} .yc.abs-RU,.yc.abs-RU2{background:var(--ru-bg);color:var(--ru);font-weight:700}
+.yc.abs-K{background:var(--k-bg);color:var(--k);font-weight:700} .yc.abs-koA{background:var(--koa-bg);color:var(--koa);font-weight:700} .yc.abs-Ft{background:var(--f-bg);color:var(--f);font-weight:700}
+.yc.hasev::after{content:"";position:absolute;bottom:2px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--ev)}
 dialog{border:0;border-radius:22px;padding:0;background:var(--card);color:var(--text);width:min(560px,calc(100vw - 24px));max-height:calc(100dvh - 24px)}
 dialog::backdrop{background:rgba(0,0,0,.45);backdrop-filter:blur(4px)}
 dialog .dl{padding:24px;overflow-y:auto}
@@ -215,9 +229,43 @@ function sollOf(s,ys,st){
   if(w===4)return shiftOf(s,st)==='F'?ys.sollFr:0;   // Freitag nur in Frühschichtwochen
   return ys.sollMoDo;
 }
+// Pause aus der Anwesenheitszeit (Std.): bis genau 6:00 keine Pause,
+// ab 6:01 volle 30 Min., ab 9:01 volle 45 Min. (feste Grenzen, kein gleitender Übergang).
+function legalPause(raw){
+  const m=Math.round(raw*60);
+  return m>540?0.75:m>360?0.5:0;
+}
+const rawOf=e=>(e&&e.s&&e.e)?((mins(e.e)-mins(e.s)+1440)%1440)/60:0;
+// Zusatzpause = Minuten über die normale 30-Min.-Pause hinaus. Abgezogen wird die längere von
+// gesetzlicher Pause und tatsächlicher Pause (Beispiel 10 Std.: ohne Eintrag 45 Min., Zusatz 15 -> 45, Zusatz 25 -> 55).
+function pauseOf(e){const r=rawOf(e);if(!r)return 0;const lp=legalPause(r);return Math.max(lp,Math.min(lp,0.5)+(Number(e.p)||0)/60)}
 function workedOf(e){
   if(!e||!e.s||!e.e)return 0;
-  return Math.max(0,((mins(e.e)-mins(e.s)+1440)%1440)/60-0.5-(Number(e.p)||0)/60); // 30 Min. Pause fest
+  return Math.max(0,rawOf(e)-pauseOf(e));
+}
+// Anwesenheit, die für eine bestimmte Ist-Zeit nötig ist (für „Soll erreicht um“)
+function rawFor(net){return net<=6?net:net<=8.5?net+0.5:net+0.75}
+// Feiertage nach Bundesland
+function easter(y){const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*m+114)/31),da=((h+l-7*m+114)%31)+1;return y+'-'+String(mo).padStart(2,'0')+'-'+String(da).padStart(2,'0')}
+const LAENDER={BW:'Baden-Württemberg',BY:'Bayern',BE:'Berlin',BB:'Brandenburg',HB:'Bremen',HH:'Hamburg',HE:'Hessen',MV:'Mecklenburg-Vorpommern',NI:'Niedersachsen',NW:'Nordrhein-Westfalen',RP:'Rheinland-Pfalz',SL:'Saarland',SN:'Sachsen',ST:'Sachsen-Anhalt',SH:'Schleswig-Holstein',TH:'Thüringen'};
+const HCACHE={};
+function holidays(y,land){
+  y=String(y); if(!land||!LAENDER[land])return {}; const key=y+land; if(HCACHE[key])return HCACHE[key];
+  const E=easter(Number(y)), o=n=>addDays(E,n), h={}, in_=l=>l.split(' ').includes(land);
+  const add=(d,n)=>{h[d]=n};
+  add(y+'-01-01','Neujahr'); if(in_('BW BY ST'))add(y+'-01-06','Heilige Drei Könige'); if(in_('BE MV'))add(y+'-03-08','Frauentag');
+  add(o(-2),'Karfreitag'); add(o(1),'Ostermontag'); add(y+'-05-01','Tag der Arbeit'); add(o(39),'Christi Himmelfahrt'); add(o(50),'Pfingstmontag');
+  if(in_('BW BY HE NW RP SL'))add(o(60),'Fronleichnam'); if(in_('SL'))add(y+'-08-15','Mariä Himmelfahrt'); if(in_('TH'))add(y+'-09-20','Weltkindertag');
+  add(y+'-10-03','Tag der Deutschen Einheit'); if(in_('BB HB HH MV NI SN ST SH TH'))add(y+'-10-31','Reformationstag'); if(in_('BW BY NW RP SL'))add(y+'-11-01','Allerheiligen');
+  if(in_('SN')){let d=y+'-11-22';while(wd(d)!==2)d=addDays(d,-1);add(d,'Buß- und Bettag')}
+  add(y+'-12-25','1. Weihnachtstag'); add(y+'-12-26','2. Weihnachtstag');
+  return HCACHE[key]=h;
+}
+// Eintrag eines Tages inkl. automatischem Feiertag (gilt nur, wenn nichts anderes eingetragen ist)
+function dayEntry(data,d){
+  const e=data.days[d]||{}, hn=holidays(d.slice(0,4),data.settings.land)[d];
+  if(hn&&!e.a&&!e.s&&!e.e)return Object.assign({},e,{a:'F',auto:true,hn});
+  return hn?Object.assign({},e,{hn}):e;
 }
 function istOf(e,soll){
   const a=e&&e.a;
@@ -232,13 +280,14 @@ function computeYear(data,y){
   let cum=Number(ys.startGleitzeit)||0;
   const tot={ist:0,soll:0,gz:0,u:0,ru:0,k:0,koa:0};
   for(let d=y+'-01-01';d.slice(0,4)==y;d=addDays(d,1)){
-    const e=data.days[d]||{}, soll=sollOf(d,ys,st), ist=istOf(e,soll);
-    const gz=((!e.a&&!e.s&&!e.e)?0:ist-soll)+(Number(e.k)||0);   // Korrektur zählt zur Tagesgleitzeit
+    const e=dayEntry(data,d), soll=sollOf(d,ys,st), ist=istOf(e,soll);
+    const open=!!(e.s&&!e.e&&!e.a);                                // Beginn ohne Ende: zählt noch nicht
+    const gz=((e.a||(e.s&&e.e))?ist-soll:0)+(Number(e.k)||0);     // Korrektur zählt zur Tagesgleitzeit
     cum+=gz;
     const M=months[Number(d.slice(5,7))-1];
     M.ist+=ist;M.soll+=soll;M.gz+=gz;
     if(e.a==='U')M.u+=1; if(e.a==='U/2')M.u+=.5; if(e.a==='RU')M.ru+=1; if(e.a==='RU/2')M.ru+=.5; if(e.a==='K')M.k+=1; if(e.a==='k.o.A.')M.koa+=1;
-    rows.push({d,shift:shiftOf(d,st),soll,ist,gz,cum});
+    rows.push({d,shift:shiftOf(d,st),soll,ist,gz,cum,open,a:e.a||'',hn:e.hn||'',pause:pauseOf(e)});
   }
   for(const M of months)for(const k in tot)tot[k]+=M[k];
   return {rows,months,tot,end:cum,rest:(Number(ys.urlaub)||0)-tot.u,restVJ:(Number(ys.restVorjahr)||0)-tot.ru};
@@ -255,7 +304,7 @@ const SHN={F:'Frühschicht',S:'Spätschicht'};
 // Speicherort: dauerhaft (localStorage) oder nur für diese Sitzung (sessionStorage, z. B. fremder PC)
 let store=null; try{store=sessionStorage.getItem('azeit.cfg')?sessionStorage:localStorage}catch(e){}
 const ls={get(k){try{return store.getItem(k)}catch(e){return null}},set(k,v){try{store.setItem(k,v)}catch(e){}},del(k){try{localStorage.removeItem(k);sessionStorage.removeItem(k)}catch(e){}}};
-function blank(){return {version:1,settings:{anchor:'2026-01-05',anchorShift:'S'},years:{'2026':{startGleitzeit:0,urlaub:30,sollMoDo:8.25,sollFr:8}},days:{},events:[],todos:[]}}
+function blank(){return {version:1,settings:{anchor:'2026-01-05',anchorShift:'S',land:'ST'},years:{'2026':{startGleitzeit:0,urlaub:30,sollMoDo:8.25,sollFr:8}},days:{},events:[],todos:[]}}
 function normalize(d){
   const b=blank(); if(!d||typeof d!=='object')return b;
   d.settings=Object.assign(b.settings,d.settings||{}); d.years=d.years&&Object.keys(d.years).length?d.years:b.years;
@@ -472,7 +521,7 @@ async function pAdmin(){
 }
 
 /* ---------- Router ---------- */
-const view={year:null,month:null,calY:null,calM:null};
+const view={year:null,month:null,calY:null,calM:null,calMode:'m'};
 function render(){
   if(!user){$('#app').innerHTML='<section class="hero"><h1>Arbeitszeit.</h1><p class="sub">Bitte melde dich an, um deine Zeiten zu sehen.</p><p style="margin-top:24px"><button class="btn" id="gl">Anmelden</button></p></section>';$('#gl').onclick=gate;return}
   if(user==='admin'){$$('nav a.tab').forEach(a=>a.classList.toggle('on',a.classList.contains('adm')));return pAdmin()}
@@ -484,13 +533,13 @@ window.addEventListener('hashchange',()=>{render();scrollTo(0,0)});
 
 /* ---------- Startseite ---------- */
 function dayInfo(d){
-  const ys=ensureYearSoft(d), e=data.days[d]||{}, sh=shiftOf(d,data.settings), soll=sollOf(d,ys,data.settings);
-  return {e,sh,soll,ist:istOf(e,soll)};
+  const ys=ensureYearSoft(d), e=dayEntry(data,d), sh=shiftOf(d,data.settings), soll=sollOf(d,ys,data.settings);
+  return {e,sh,soll,ist:istOf(e,soll),hn:e.hn||''};
 }
 function ensureYearSoft(d){return data.years[d.slice(0,4)]||{startGleitzeit:0,urlaub:30,sollMoDo:8.25,sollFr:8}}
 function pStart(){
   const t=today(), i=dayInfo(t);
-  const head=i.e.a?ABSN[i.e.a]:i.soll>0?SHN[i.sh]:'Frei';
+  const head=i.e.a==='F'&&i.hn?i.hn:i.e.a?ABSN[i.e.a]:i.soll>0?SHN[i.sh]:'Frei';
   $('#app').innerHTML=`
   <section class="hero">
     <p class="eyebrow">${dLong(t)}</p>
@@ -513,8 +562,8 @@ function pStart(){
   const upd=()=>{
     const t=today(), i=dayInfo(t), y=t.slice(0,4), c=computeYear(data,String(ensureYearKey(y)));
     let s='';
-    if(i.e.s&&!i.e.e&&i.soll>0){const m=(mins(i.e.s)+Math.round((i.soll+.5)*60)+(Number(i.e.p)||0))%1440;s=`Soll erreicht um <b>${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')} Uhr</b> (inkl. 30 Min. Pause).`}
-    else if(i.e.s&&i.e.e)s=`Ist ${f2(i.ist)} Std. · Soll ${f2(i.soll)} Std. · <b class="${cls(i.ist-i.soll)}">${sg(i.ist-i.soll)} Std.</b>`;
+    if(i.e.s&&!i.e.e&&i.soll>0){const pz=Math.round((rawFor(i.soll)-i.soll)*60), m=(mins(i.e.s)+Math.round(rawFor(i.soll)*60)+(Number(i.e.p)||0))%1440;s=`Soll erreicht um <b>${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')} Uhr</b>${pz?` (inkl. ${pz} Min. Pause)`:''}. Der Tag zählt erst zur Gleitzeit, wenn das Ende eingetragen ist.`}
+    else if(i.e.s&&i.e.e)s=`Ist ${f2(i.ist)} Std. (abzügl. ${Math.round(pauseOf(i.e)*60)} Min. Pause) · Soll ${f2(i.soll)} Std. · <b class="${cls(i.ist-i.soll)}">${sg(i.ist-i.soll)} Std.</b>`;
     else s='Noch keine Zeiten für heute eingetragen.';
     $('#hinfo').innerHTML=s;
     $('#stats').innerHTML=`
@@ -554,7 +603,7 @@ function pRechner(){
       <label class="f">Arbeitsende<input type="time" id="re" value="${e.e||''}"></label>
       <label class="f">Zusatzpause (Min.)<input type="number" id="rp" min="0" step="1" inputmode="numeric" value="${e.p||''}"></label>
     </div>
-    <p class="note" style="margin:12px 0 0">30 Minuten Pause werden automatisch abgezogen. Arbeitsende nach Mitternacht wird erkannt.</p>
+    <p class="note" style="margin:12px 0 0">Pause wird automatisch abgezogen: bis 6 Std. keine, über 6 Std. 30 Min., über 9 Std. 45 Min. Zusatzpause = Minuten, die du länger als die normalen 30 Min. Pause gemacht hast (zählt bei langen Tagen auf die 45 Min. an). Arbeitsende nach Mitternacht wird erkannt.</p>
   </div>
   <div class="grid g4" id="rout"></div>
   <div class="card" style="margin-top:16px"><div class="row"><button class="btn" id="rsave">In Zeiterfassung übernehmen</button><span class="muted small" id="rmsg"></span></div></div>
@@ -567,10 +616,10 @@ function pRechner(){
     const d=$('#rd').value||t, x={s:$('#rs').value,e:$('#re').value,p:Number($('#rp').value)||0};
     const ys=ensureYearSoft(d), sh=shiftOf(d,data.settings), soll=sollOf(d,ys,data.settings), ist=workedOf(x);
     let fe='–';
-    if(x.s){const m=(mins(x.s)+Math.round((soll+.5)*60)+x.p)%1440;fe=String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')}
+    if(x.s){const m=(mins(x.s)+Math.round(rawFor(soll)*60)+x.p)%1440;fe=String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')}
     const has=x.s&&x.e;
     $('#rout').innerHTML=`
-      <div class="card stat"><div class="l">Ist-Arbeitszeit</div><div class="v">${has?f2(ist):'–'}</div><div class="s">${has?hm(ist)+' Std.':'Beginn und Ende eingeben'}</div></div>
+      <div class="card stat"><div class="l">Ist-Arbeitszeit</div><div class="v">${has?f2(ist):'–'}</div><div class="s">${has?hm(ist)+' Std. · '+Math.round(pauseOf(x)*60)+' Min. Pause abgezogen':'Beginn und Ende eingeben'}</div></div>
       <div class="card stat"><div class="l">Soll-Arbeitszeit</div><div class="v">${f2(soll)}</div><div class="s"><span class="badge b-${sh}">${SHN[sh]}</span> ${DOW[wd(d)]}</div></div>
       <div class="card stat"><div class="l">Gleitzeit Tag</div><div class="v ${has?cls(ist-soll):''}">${has?sg(ist-soll):'–'}</div><div class="s">${has?hm(ist-soll)+' Std.':''}</div></div>
       <div class="card stat"><div class="l">Soll erreicht um</div><div class="v">${soll>0?fe:'–'}</div><div class="s">${soll>0?'frühester Feierabend ohne Minus':'kein Arbeitstag'}</div></div>`;
@@ -608,14 +657,15 @@ function pZeiten(){
     </details>
   </div>
   <div class="card"><h3>Monatsübersicht</h3><div class="scroll"><table id="ov"></table></div></div>
-  <h2 id="mt"></h2>
+  <div class="calhead" style="margin-top:48px"><h2 id="mt"></h2><button class="btn sec" id="pdf">Monatsbericht (PDF)</button></div>
   <div class="pills nowrap" style="margin-bottom:14px">${MON.map((m,k)=>`<button class="pill ${k===view.month?'on':''}" data-m="${k}">${m.slice(0,3)}</button>`).join('')}</div>
   <div class="card" style="padding:12px 0"><div class="scroll"><table class="days" id="dt"></table></div></div>
-  <p class="note">Abwesenheit: K = krank, k.o.A. = krank ohne Attest, U = Urlaub, U/2 = halber Urlaubstag, RU = Resturlaub aus dem Vorjahr, RU/2 = halber Resturlaubstag, F = Feiertag. Die Schicht wechselt wochenweise; Freitage zählen nur in Frühschichtwochen. Einträge erscheinen automatisch im Kalender.</p>`;
+  <p class="note">Abwesenheit: K = krank, k.o.A. = krank ohne Attest, U = Urlaub, U/2 = halber Urlaubstag, RU = Resturlaub aus dem Vorjahr, RU/2 = halber Resturlaubstag, F = Feiertag. Feiertage werden automatisch eingetragen (Bundesland im Zahnrad). Ein Tag mit Beginn, aber ohne Ende zählt erst zur Gleitzeit, wenn das Ende eingetragen ist. Pause: bis 6 Std. keine, über 6 Std. 30 Min., über 9 Std. 45 Min.; Zusatzpause = Minuten über die normalen 30 Min. hinaus. Die Schicht wechselt wochenweise; Freitage zählen nur in Frühschichtwochen. Einträge erscheinen automatisch im Kalender.</p>`;
   $$('[data-y]').forEach(b=>b.onclick=()=>{view.year=b.dataset.y;view.month=null;pZeiten()});
   $('#addy').onclick=()=>{const n=prompt('Welches Jahr hinzufügen?',String(Number(years[years.length-1])+1));if(!n)return;if(!/^20\d\d$/.test(n.trim()))return alert('Bitte eine Jahreszahl wie 2027 eingeben.');ensureYear(n.trim());save();view.year=n.trim();view.month=0;pZeiten()};
   $$('[data-ys]').forEach(i=>i.onchange=()=>{ys[i.dataset.ys]=Number(i.value)||0;save();refreshZ()});
   if($('#carry'))$('#carry').onclick=()=>{const pc=computeYear(data,String(y-1));ys.startGleitzeit=Math.round(pc.end*100)/100;ys.restVorjahr=Math.max(0,pc.rest);save();pZeiten()};
+  $('#pdf').onclick=()=>monthPdf(view.year,view.month);
   $$('[data-m]').forEach(b=>b.onclick=()=>{view.month=Number(b.dataset.m);$$('[data-m]').forEach(x=>x.classList.toggle('on',x===b));drawMonth()});
   drawMonth();
 }
@@ -625,10 +675,10 @@ function drawMonth(){
   const c=computeYear(data,y), rows=c.rows.filter(r=>r.d.startsWith(pre));
   $('#dt').innerHTML=`<thead><tr><th>Datum</th><th class="l">Schicht</th><th class="l">Abwesenheit</th><th class="l">Beginn</th><th class="l">Ende</th><th class="l">Zusatzpause</th><th>Ist</th><th>Soll</th><th class="l">Korrektur</th><th>Gleitzeit Tag</th><th>Gleitzeit gesamt</th></tr></thead><tbody>`+
   rows.map(r=>{const e=data.days[r.d]||{}, w=wd(r.d);
-    return `<tr data-d="${r.d}" class="${w>4?'we':''} ${r.d===t?'today':''}">
-      <td>${DOW[w]} ${dShort(r.d)}</td>
+    return `<tr data-d="${r.d}" class="${w>4||r.hn?'we':''} ${r.d===t?'today':''}">
+      <td>${DOW[w]} ${dShort(r.d)}${r.hn?`<br><span class="note">${esc(r.hn)}</span>`:''}</td>
       <td class="l"><span class="badge b-${r.soll>0?r.shift:'0'}">${r.soll>0?(r.shift==='F'?'Früh':'Spät'):'frei'}</span></td>
-      <td class="in"><select data-k="a" aria-label="Abwesenheit"><option value=""></option>${ABS.map(a=>`<option ${e.a===a[0]?'selected':''}>${a[0]}</option>`).join('')}</select></td>
+      <td class="in"><select data-k="a" aria-label="Abwesenheit" title="${r.hn?esc(r.hn):''}"><option value="">${r.hn&&!e.a?'F (auto)':''}</option>${ABS.map(a=>`<option ${e.a===a[0]?'selected':''}>${a[0]}</option>`).join('')}</select></td>
       <td class="in"><input type="time" data-k="s" value="${e.s||''}" aria-label="Arbeitsbeginn"></td>
       <td class="in"><input type="time" data-k="e" value="${e.e||''}" aria-label="Arbeitsende"></td>
       <td class="in"><input type="number" data-k="p" min="0" step="1" inputmode="numeric" value="${e.p||''}" placeholder="Min." aria-label="Zusatzpause in Minuten" style="width:76px"></td>
@@ -644,8 +694,11 @@ function drawMonth(){
 }
 function refreshZ(){
   const y=view.year, m=view.month, c=computeYear(data,y), by=Object.fromEntries(c.rows.map(r=>[r.d,r]));
-  $$('#dt tbody tr').forEach(tr=>{const r=by[tr.dataset.d], e=data.days[r.d]||{}, act=e.a||e.s||e.e||e.k;
-    $('[data-c=ist]',tr).textContent=r.ist?f2(r.ist):act?f2(0):'';
+  $$('#dt tbody tr').forEach(tr=>{const r=by[tr.dataset.d], e=data.days[r.d]||{}, act=(r.a&&(r.soll>0||e.a))||(e.s&&e.e)||e.k;
+    const ic=$('[data-c=ist]',tr);
+    if(r.open){ic.innerHTML=r.d===today()?'<span class="badge b-ev">läuft</span>':'<span class="badge a-koA" title="Ohne Arbeitsende zählt der Tag nicht zur Gleitzeit">Ende fehlt</span>'}
+    else ic.textContent=r.ist?f2(r.ist):act?f2(0):'';
+    ic.title=r.pause?'abzügl. '+Math.round(r.pause*60)+' Min. Pause':'';
     $('[data-c=soll]',tr).textContent=r.soll?f2(r.soll):'';
     const g=$('[data-c=gz]',tr);g.textContent=act?sg(r.gz):'';g.className=act?cls(r.gz):'';
     const cu=$('[data-c=cum]',tr);cu.textContent=sg(r.cum);cu.className=cls(r.cum);
@@ -666,43 +719,69 @@ function refreshZ(){
 }
 
 /* ---------- Kalender ---------- */
+const absLabel=(a,i,short)=>a==='F'&&i.hn?(short?'F':i.hn):(short?a:ABSN[a]);
+function legendHtml(){return `<div class="legend"><span class="badge b-F">F · Frühschicht</span><span class="badge b-S">S · Spätschicht</span>${ABS.map(a=>`<span class="badge a-${ACL[a[0]]}">${a[0]} · ${a[1]}</span>`).join('')}<span class="badge b-ev">Termin</span></div>`}
 function pKalender(){
   const t=today();
   if(view.calY==null){view.calY=Number(t.slice(0,4));view.calM=Number(t.slice(5,7))-1}
-  const y=view.calY, m=view.calM, pre=y+'-'+String(m+1).padStart(2,'0'), first=pre+'-01';
-  const n=new Date(Date.UTC(y,m+1,0)).getUTCDate(), off=wd(first), ti=dayInfo(t);
-  let cells=DOW.map(d=>`<div class="dow">${d}</div>`).join('')+'<div></div>'.repeat(off);
-  for(let k=1;k<=n;k++){
-    const d=pre+'-'+String(k).padStart(2,'0'), i=dayInfo(d), a=i.e.a, ev=eventsOn(d);
-    const lab=[DOWL[wd(d)]+' '+k+'.',i.soll>0?SHN[i.sh]:'frei',a?ABSN[a]:'',ev.length?ev.length+' Termin(e)':''].filter(Boolean).join(', ');
-    cells+=`<button class="day ${i.soll>0?'':'off'} ${d===t?'today':''} ${a?'abs-'+ACL[a]:''}" data-d="${d}" aria-label="${lab}">
-      <span class="n"><span>${k}</span>${i.soll>0?`<span class="sh b-${i.sh}" title="${SHN[i.sh]}">${i.sh}</span>`:''}</span>
-      ${a?`<span class="badge a-${ACL[a]}">${innerWidth<641?a:ABSN[a]}</span>`:''}
-      ${ev.slice(0,2).map(e=>`<span class="badge b-ev">${esc((innerWidth<641?'':(e.time?span(e)+' ':''))+e.title)}</span>`).join('')}
-      ${ev.length>2?`<span class="note">+${ev.length-2}</span>`:''}
-      ${data.todos.filter(x=>!x.done&&x.due===d).slice(0,1).map(x=>`<span class="badge b-td">✓ ${esc(x.title)}</span>`).join('')}</button>`;
+  const y=view.calY, m=view.calM, pre=y+'-'+String(m+1).padStart(2,'0'), first=pre+'-01', yr=view.calMode==='y';
+  const ti=dayInfo(t), sm=innerWidth<641;
+  let body='';
+  if(!yr){
+    const n=new Date(Date.UTC(y,m+1,0)).getUTCDate(), off=wd(first);
+    let cells=DOW.map(d=>`<div class="dow">${d}</div>`).join('')+'<div></div>'.repeat(off);
+    for(let k=1;k<=n;k++){
+      const d=pre+'-'+String(k).padStart(2,'0'), i=dayInfo(d), a=i.e.a, ev=eventsOn(d);
+      const lab=[DOWL[wd(d)]+' '+k+'.',i.soll>0?SHN[i.sh]:'frei',a?absLabel(a,i):'',ev.length?ev.length+' Termin(e)':''].filter(Boolean).join(', ');
+      cells+=`<button class="day ${i.soll>0&&!(a==='F')?'':'off'} ${d===t?'today':''} ${a?'abs-'+ACL[a]:''}" data-d="${d}" aria-label="${esc(lab)}">
+        <span class="n"><span>${k}</span>${i.soll>0&&a!=='F'?`<span class="sh b-${i.sh}" title="${SHN[i.sh]}">${i.sh}</span>`:''}</span>
+        ${a?`<span class="badge a-${ACL[a]}" title="${esc(absLabel(a,i))}">${esc(absLabel(a,i,sm))}</span>`:''}
+        ${ev.slice(0,2).map(e=>`<span class="badge b-ev">${esc((sm?'':(e.time?span(e)+' ':''))+e.title)}</span>`).join('')}
+        ${ev.length>2?`<span class="note">+${ev.length-2}</span>`:''}
+        ${data.todos.filter(x=>!x.done&&x.due===d).slice(0,1).map(x=>`<span class="badge b-td">✓ ${esc(x.title)}</span>`).join('')}</button>`;
+    }
+    body=`<div class="cal">${cells}</div>`;
+  }else{
+    const ys=data.years[y]||ensureYearSoft(y+'-01-01'), c=computeYear(data.years[y]?data:Object.assign({},data,{years:Object.assign({},data.years,{[y]:ys})}),String(y));
+    let months='';
+    for(let mm=0;mm<12;mm++){
+      const p=y+'-'+String(mm+1).padStart(2,'0'), n=new Date(Date.UTC(y,mm+1,0)).getUTCDate();
+      let g=DOW.map(d=>`<span class="yd">${d[0]}</span>`).join('')+'<span></span>'.repeat(wd(p+'-01'));
+      for(let k=1;k<=n;k++){const d=p+'-'+String(k).padStart(2,'0'), i=dayInfo(d), a=i.e.a;
+        g+=`<button class="yc ${i.soll>0||a?'':'off'} ${a?'abs-'+ACL[a]:''} ${d===t?'today':''} ${eventsOn(d).length?'hasev':''}" data-d="${d}" title="${esc(dShort(d)+' '+(a?absLabel(a,i):i.soll>0?SHN[i.sh]:'frei'))}">${k}</button>`}
+      const M=c.months[mm];
+      months+=`<div class="ym"><div class="ymh"><b>${MON[mm]}</b><span class="note">${[M.u+M.ru?dnum(M.u+M.ru)+' U':'',M.k+M.koa?dnum(M.k+M.koa)+' K':''].filter(Boolean).join(' · ')}</span></div><div class="yg">${g}</div></div>`;
+    }
+    body=`<div class="grid g4" style="margin-bottom:20px">
+      <div class="card stat"><div class="l">Urlaub ${y} übrig</div><div class="v ${c.rest<0?'neg':''}">${dnum(c.rest)}</div><div class="s">von ${dnum(ys.urlaub)} Tagen · ${dnum(c.tot.u)} verplant</div></div>
+      <div class="card stat"><div class="l">Resturlaub aus ${y-1}</div><div class="v ${c.restVJ<0?'neg':''}">${dnum(c.restVJ)}</div><div class="s">${Number(ys.restVorjahr)?`von ${dnum(ys.restVorjahr)} · ${dnum(c.tot.ru)} verplant`:'keine Tage übertragen'}</div></div>
+      <div class="card stat"><div class="l">Krankentage</div><div class="v">${dnum(c.tot.k+c.tot.koa)}</div><div class="s">${dnum(c.tot.k)} mit Attest · ${dnum(c.tot.koa)} ohne</div></div>
+      <div class="card stat"><div class="l">Feiertage</div><div class="v">${Object.keys(holidays(y,data.settings.land)).length}</div><div class="s">${LAENDER[data.settings.land]||'keine automatisch'}</div></div></div>
+      <div class="ycal">${months}</div>`;
   }
   $('#app').innerHTML=`
   <section class="hero" style="padding-bottom:8px"><p class="eyebrow">Heute · KW ${kw(t)}</p>
-    <h1>${ti.e.a?ABSN[ti.e.a]:ti.soll>0?SHN[ti.sh]:'Frei'}.</h1>
+    <h1>${ti.e.a?absLabel(ti.e.a,ti):ti.soll>0?SHN[ti.sh]:'Frei'}.</h1>
     <p class="sub">Diese Woche: ${SHN[ti.sh]} · nächste Woche: ${SHN[shiftOf(addDays(t,7),data.settings)]}</p></section>
-  <div class="calhead"><h2>${MON[m]} ${y}</h2>
-    <button class="btn sec" id="ct">Heute</button><button class="circ" id="cp" aria-label="Vorheriger Monat">‹</button><button class="circ" id="cn" aria-label="Nächster Monat">›</button></div>
-  <div class="cal">${cells}</div>
-  <div class="legend"><span class="badge b-F">F · Frühschicht</span><span class="badge b-S">S · Spätschicht</span>${ABS.map(a=>`<span class="badge a-${ACL[a[0]]}">${a[0]} · ${a[1]}</span>`).join('')}<span class="badge b-ev">Termin</span></div>
-  <p class="note" style="margin-top:14px">Tag antippen, um Urlaub, Krankheit oder Termine einzutragen. Abwesenheiten werden direkt in die Zeiterfassung übernommen – und umgekehrt.</p>`;
-  $('#cp').onclick=()=>{if(--view.calM<0){view.calM=11;view.calY--}pKalender()};
-  $('#cn').onclick=()=>{if(++view.calM>11){view.calM=0;view.calY++}pKalender()};
+  <div class="pills" style="justify-content:center;margin-top:24px"><button class="pill ${yr?'':'on'}" data-cm="m">Monat</button><button class="pill ${yr?'on':''}" data-cm="y">Jahr (Urlaubsplaner)</button></div>
+  <div class="calhead"><h2>${yr?y:MON[m]+' '+y}</h2>
+    <button class="btn sec" id="ct">Heute</button><button class="circ" id="cp" aria-label="${yr?'Vorheriges Jahr':'Vorheriger Monat'}">‹</button><button class="circ" id="cn" aria-label="${yr?'Nächstes Jahr':'Nächster Monat'}">›</button></div>
+  ${body}
+  ${legendHtml()}
+  <p class="note" style="margin-top:14px">Tag antippen, um Urlaub, Krankheit oder Termine einzutragen. Abwesenheiten werden direkt in die Zeiterfassung übernommen – und umgekehrt. Feiertage (${LAENDER[data.settings.land]||'aus'}) werden automatisch eingetragen.</p>`;
+  $$('[data-cm]').forEach(b=>b.onclick=()=>{view.calMode=b.dataset.cm;pKalender()});
+  $('#cp').onclick=()=>{if(yr)view.calY--;else if(--view.calM<0){view.calM=11;view.calY--}pKalender()};
+  $('#cn').onclick=()=>{if(yr)view.calY++;else if(++view.calM>11){view.calM=0;view.calY++}pKalender()};
   $('#ct').onclick=()=>{view.calY=null;pKalender()};
-  $$('.day').forEach(b=>b.onclick=()=>dayDialog(b.dataset.d));
+  $$('.day,.yc').forEach(b=>b.onclick=()=>dayDialog(b.dataset.d));
 }
 function dayDialog(d,msg,keepTo){
   const i=dayInfo(d), a=i.e.a||'', ev=eventsOn(d);
   openDlg(`
     <p class="eyebrow" style="font-size:14px">${i.soll>0?SHN[i.sh]+' · Soll '+f2(i.soll)+' Std.':'Kein Arbeitstag'}${i.e.s?' · '+i.e.s+(i.e.e?'–'+i.e.e:''):''}</p>
-    <h3>${dLong(d)}</h3>
+    <h3>${dLong(d)}</h3>${i.hn?`<p style="margin:-4px 0 0"><span class="badge a-Ft">Feiertag: ${esc(i.hn)}</span></p>`:''}
     <div class="sect"><div class="t">Abwesenheit</div>
-      <div class="pills"><button class="pill ${a?'':'on'}" data-a="">Keine</button>${ABS.map(x=>`<button class="pill ${a===x[0]?'on':''}" data-a="${x[0]}">${x[1]}</button>`).join('')}</div>
+      <div class="pills"><button class="pill ${a&&!i.e.auto?'':'on'}" data-a="">Keine</button>${ABS.map(x=>`<button class="pill ${a===x[0]&&!i.e.auto?'on':''}" data-a="${x[0]}">${x[1]}</button>`).join('')}</div>
       <label class="f" style="margin-top:12px">Zeitraum bis (optional)<input type="date" id="dto" min="${d}" value="${keepTo||''}"></label>
       ${msg?`<p class="small pos" style="margin:8px 0 0"><b>${msg}</b></p>`:''}
       <p class="note" style="margin:6px 0 0">Für mehrere Tage: Abwesenheit wählen und das „bis“-Datum setzen – die Reihenfolge ist egal. Wochenenden, freie Freitage und Feiertage werden übersprungen.</p>
@@ -723,7 +802,7 @@ function dayDialog(d,msg,keepTo){
     if((pd(to)-pd(d))/DAY>366)return alert('Zeitraum ist zu lang.');
     let n=0;
     for(let x=d;x<=to;x=addDays(x,1)){const j=dayInfo(x);if(x!==d&&(sollOf(x,ensureYear(x.slice(0,4)),data.settings)===0||j.e.a==='F'))continue;setDay(x,{a:v});n++}
-    if(to.slice(0,7)!==d.slice(0,7)){view.calY=Number(d.slice(0,4));view.calM=Number(d.slice(5,7))-1}
+    if(to.slice(0,7)!==d.slice(0,7)&&view.calMode!=='y'){view.calY=Number(d.slice(0,4));view.calM=Number(d.slice(5,7))-1}
     pKalender(); dayDialog(d,(v?ABSN[v]+' eingetragen':'Abwesenheit entfernt')+' für '+n+(n===1?' Tag':' Tage')+' bis '+dShort(to)+to.slice(0,4)+'.',to);
   };
   $$('#dlgc [data-a]').forEach(b=>b.onclick=()=>{
@@ -753,6 +832,82 @@ function dayDialog(d,msg,keepTo){
 function openDlg(html){const g=$('#dlg');$('#dlgc').innerHTML=html;if(!g.open)g.showModal()}
 function closeDlg(){$('#dlg').close()}
 $('#dlg').addEventListener('click',e=>{if(e.target===$('#dlg'))closeDlg()});
+
+/* ---------- Monatsbericht als PDF (ohne externe Bibliothek) ---------- */
+function pdfDoc(){
+  const W=842,H=595, pages=[]; let cur=null;
+  const enc=t=>{let o='';for(const ch of String(t)){let c=ch.charCodeAt(0);
+      const map={'–':0x96,'—':0x97,'−':0x2d,'„':0x84,'“':0x93,'”':0x94,'‘':0x91,'’':0x92,'€':0x80,'…':0x85,'•':0x95};
+      if(map[ch]!=null)c=map[ch]; else if(c>255)c=0x3f;
+      const x=String.fromCharCode(c); o+=(x==='\\'||x==='('||x===')')?'\\'+x:x}return o};
+  const CW={'0':556,'1':556,'2':556,'3':556,'4':556,'5':556,'6':556,'7':556,'8':556,'9':556,',':278,'.':278,'-':333,'+':584,':':278,' ':278,'−':584};
+  const width=(t,sz)=>{let w=0;for(const ch of String(t))w+=CW[ch]||556;return w*sz/1000};
+  const api={W,H,
+    page(){cur=[];pages.push(cur);return api},
+    text(x,y,t,sz=9,bold=false,align='l',gray=0){if(t==null||t==='')return api;let xx=x;if(align==='r')xx=x-width(t,sz);
+      cur.push(`${gray} g BT /${bold?'F2':'F1'} ${sz} Tf ${xx.toFixed(2)} ${(H-y).toFixed(2)} Td (${enc(t)}) Tj ET`);return api},
+    line(x1,y1,x2,y2,w=.5,gray=.75){cur.push(`${gray} G ${w} w ${x1} ${H-y1} m ${x2} ${H-y2} l S`);return api},
+    rect(x,y,w,h,gray=.95){cur.push(`${gray} g ${x} ${H-y-h} ${w} ${h} re f`);return api},
+    blob(){
+      const objs=[]; const add=o=>{objs.push(o);return objs.length};
+      add('<< /Type /Catalog /Pages 2 0 R >>'); add('');
+      const f1=add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+      const f2=add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+      const kids=[];
+      for(const pg of pages){const st=pg.join('\n'); const c=add(`<< /Length ${st.length} >>\nstream\n${st}\nendstream`);
+        kids.push(add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 ${f1} 0 R /F2 ${f2} 0 R >> >> /Contents ${c} 0 R >>`))}
+      objs[1]=`<< /Type /Pages /Kids [${kids.map(k=>k+' 0 R').join(' ')}] /Count ${kids.length} >>`;
+      let out='%PDF-1.4\n%\xe2\xe3\xcf\xd3\n'; const off=[];
+      objs.forEach((o,i)=>{off.push(out.length);out+=`${i+1} 0 obj\n${o}\nendobj\n`});
+      const x=out.length; out+=`xref\n0 ${objs.length+1}\n0000000000 65535 f \n`+off.map(o=>String(o).padStart(10,'0')+' 00000 n \n').join('');
+      out+=`trailer\n<< /Size ${objs.length+1} /Root 1 0 R /Info << /Producer (Arbeitszeit) >> >>\nstartxref\n${x}\n%%EOF`;
+      const b=new Uint8Array(out.length);for(let i=0;i<out.length;i++)b[i]=out.charCodeAt(i)&255;
+      return new Blob([b],{type:'application/pdf'});
+    }};
+  return api;
+}
+function monthPdf(y,m){
+  y=String(y); const c=computeYear(data,y), pre=y+'-'+String(m+1).padStart(2,'0'), rows=c.rows.filter(r=>r.d.startsWith(pre)), M=c.months[m];
+  const last=rows[rows.length-1], ys=data.years[y], pdf=pdfDoc(), n2=v=>f2(v).replace('−','-'), s2=v=>sg(v).replace('−','-');
+  const L=36, cols=[[L,'Datum'],[L+62,'Tag'],[L+86,'Schicht'],[L+140,'Abwesenheit'],[L+300,'Beginn'],[L+345,'Ende'],[L+430,'Pause (Min.)','r'],[L+490,'Ist','r'],[L+545,'Soll','r'],[L+610,'Korrektur','r'],[L+685,'Gleitzeit Tag','r'],[L+770,'Gleitzeit gesamt','r']];
+  let y0=0;
+  const head=first=>{
+    pdf.page();
+    pdf.text(L,48,'Monatsbericht '+MON[m]+' '+y,18,true);
+    pdf.text(L,66,'Personalnummer: '+user+'   ·   Bundesland: '+(LAENDER[data.settings.land]||'–')+'   ·   erstellt am '+dShort(today())+today().slice(0,4),9,false,'l',.35);
+    let yy=84;
+    if(first){
+      const box=[['Soll',n2(M.soll)+' Std.'],['Ist',n2(M.ist)+' Std.'],['Gleitzeit Monat',s2(M.gz)+' Std.'],['Gleitzeit-Stand Monatsende',s2(last.cum)+' Std.'],
+        ['Urlaub',dnum(M.u)+' Tage'],['Resturlaub',dnum(M.ru)+' Tage'],['Krank',dnum(M.k)+' Tage'],['k.o.A.',dnum(M.koa)+' Tage']];
+      pdf.rect(L,yy,pdf.W-2*L,46,.95);
+      box.forEach((b,i)=>{const x=L+12+(i%4)*192, yb=yy+16+Math.floor(i/4)*20;pdf.text(x,yb,b[0],8,false,'l',.4);pdf.text(x+(i%4===3?118:84),yb,b[1],9,true)});
+      yy+=62;
+    }
+    cols.forEach(cc=>pdf.text(cc[0],yy,cc[1],8,true,cc[2]||'l',.3));
+    pdf.line(L,yy+5,pdf.W-L,yy+5,.8,.5);
+    return yy+18;
+  };
+  y0=head(true);
+  for(const r of rows){
+    if(y0>pdf.H-60){y0=head(false)}
+    const e=data.days[r.d]||{}, w=wd(r.d), act=(r.a&&(r.soll>0||e.a))||(e.s&&e.e)||e.k;
+    if(w>4||r.hn)pdf.rect(L,y0-9.5,pdf.W-2*L,13,.95);
+    const ab=r.a==='F'&&r.hn?'Feiertag ('+r.hn+')':r.a?ABSN[r.a]:'';
+    const vals=[dShort(r.d)+y.slice(2),DOW[w],r.soll>0?(r.shift==='F'?'Früh':'Spät'):'frei',ab,e.s||'',e.e||(r.open?'fehlt':''),
+      r.pause?String(Math.round(r.pause*60)):'',r.open?'':(r.ist||act?n2(r.ist):''),r.soll?n2(r.soll):'',e.k?s2(e.k):'',act?s2(r.gz):'',s2(r.cum)];
+    cols.forEach((cc,i)=>pdf.text(cc[0],y0,vals[i],8.5,i===11,cc[2]||'l',0));
+    y0+=13;
+  }
+  pdf.line(L,y0-6,pdf.W-L,y0-6,.8,.5);
+  pdf.text(L+140,y0+6,'Monatssumme',8.5,true);
+  pdf.text(cols[7][0],y0+6,n2(M.ist),8.5,true,'r'); pdf.text(cols[8][0],y0+6,n2(M.soll),8.5,true,'r');
+  pdf.text(cols[10][0],y0+6,s2(M.gz),8.5,true,'r'); pdf.text(cols[11][0],y0+6,s2(last.cum),8.5,true,'r');
+  if(y0+60<pdf.H-20){const ys2=pdf.H-34;pdf.line(L,ys2,L+200,ys2,.5,.3);pdf.text(L,ys2+11,'Datum, Unterschrift Mitarbeiter/in',7.5,false,'l',.4);
+    pdf.line(pdf.W-L-200,ys2,pdf.W-L,ys2,.5,.3);pdf.text(pdf.W-L-200,ys2+11,'Datum, Unterschrift Vorgesetzte/r',7.5,false,'l',.4)}
+  pdf.text(L,pdf.H-14,'Pause: bis 6 Std. keine, über 6 Std. 30 Min., über 9 Std. 45 Min. (Zusatzpause = Minuten über 30 Min.). Grau: Wochenende/Feiertag.',7,false,'l',.5);
+  const a=document.createElement('a'); a.href=URL.createObjectURL(pdf.blob()); a.download=`Monatsbericht_${y}-${String(m+1).padStart(2,'0')}_${user}.pdf`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
 
 /* ---------- Aufgaben ---------- */
 function pAufgaben(){
@@ -817,6 +972,10 @@ function openSettings(){
         <label class="f">Schicht in dieser Woche<select id="ss"><option value="F" ${s.anchorShift==='F'?'selected':''}>Frühschicht</option><option value="S" ${s.anchorShift==='S'?'selected':''}>Spätschicht</option></select></label>
       </div><p class="note" style="margin:6px 0 0">Ab dieser Woche wechselt die Schicht wöchentlich – auch über den Jahreswechsel hinaus.</p>
     </div>
+    <div class="sect"><div class="t">Feiertage</div>
+      <label class="f">Bundesland<select id="sl"><option value="">Keine automatischen Feiertage</option>${Object.entries(LAENDER).map(([k,v])=>`<option value="${k}" ${s.land===k?'selected':''}>${v}</option>`).join('')}</select></label>
+      <p class="note" style="margin:6px 0 0">Feiertage werden automatisch im Kalender und in der Zeiterfassung eingetragen. Ein eigener Eintrag am selben Tag hat Vorrang.</p>
+    </div>
     <div class="sect"><div class="t">Sicherung</div>
       <div class="row"><button class="btn sec" id="si">Daten importieren (JSON)</button><button class="btn sec" id="se">Sicherung herunterladen</button><input type="file" id="sf" accept=".json,application/json" hidden></div>
     </div>`:''}
@@ -853,6 +1012,7 @@ function openSettings(){
   if(!isUser())return;
   const sh=()=>{const v=$('#sa').value;if(!v)return;data.settings.anchor=mondayOf(v);data.settings.anchorShift=$('#ss').value;$('#sa').value=data.settings.anchor;save()};
   $('#sa').onchange=sh;$('#ss').onchange=sh;
+  $('#sl').onchange=()=>{data.settings.land=$('#sl').value;save()};
   $('#si').onclick=()=>$('#sf').click();
   $('#sf').onchange=async e=>{const f=e.target.files[0];if(!f)return;
     try{const j=JSON.parse(await f.text());if(!j.days||!j.years)throw 0;
