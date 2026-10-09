@@ -123,6 +123,39 @@ th{font-size:12px;font-weight:600;color:var(--muted);text-align:right;padding:8p
 td{padding:7px 10px;border-bottom:1px solid var(--soft);text-align:right;font-size:15px;white-space:nowrap}
 th:first-child,td:first-child{text-align:left}
 tr.sum td{font-weight:600;border-top:1px solid var(--line);border-bottom:0}
+/* Tagesliste: Desktop als Zeile, Handy als Karte – nie seitlich scrollen */
+.dlist{padding:8px 16px}
+.dr{display:grid;grid-template-columns:96px 56px 96px minmax(90px,1fr) minmax(90px,1fr) 74px 54px 50px 78px 70px 66px;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--soft);font-variant-numeric:tabular-nums}
+.dr.dh{font-size:12px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--line);align-items:end;line-height:1.2}
+.dr .dc{min-width:0;font-size:15px}
+.dr .n{text-align:right}
+.dr .ml{display:none}
+.dr .hn{display:block;font-size:11px;line-height:1.2}
+.dr.we{color:var(--muted)} .dr.today .c-date b{color:var(--blue)}
+.dr input,.dr select{min-height:40px;padding:5px 8px;font-size:15px;border-radius:9px;width:100%}
+.dr .xadd{display:none}
+.dr .msoll{display:none;font-size:11px;color:var(--muted)}
+.dr input[type=time]{min-width:0}
+.dr.dsum{grid-template-columns:1fr 54px 50px 66px 66px;border-bottom:0;padding-top:10px}
+@media (min-width:1001px){.dr.dsum{grid-template-columns:96px 56px 96px minmax(90px,1fr) minmax(90px,1fr) 74px 54px 50px 78px 70px 66px}.dr.dsum .c-date{grid-column:1/7}.dr.dsum .c-ist{grid-column:7}.dr.dsum .c-soll{grid-column:8}.dr.dsum .c-gz{grid-column:10}.dr.dsum .c-cum{grid-column:11}}
+@media (max-width:1000px){
+  .dlist{padding:4px 12px}
+  .dr.dh{display:none}
+  .dr{grid-template-columns:repeat(12,minmax(0,1fr));grid-template-areas:"date date date date date sh sh ab ab ab ab ab" "s s s s s s e e e e e e" "p p p k k k ist ist gz gz cum cum";gap:6px;padding:12px 0}
+  .dr .c-soll{display:none} .dr .msoll{display:block}
+  .c-date{grid-area:date}.c-sh{grid-area:sh;text-align:right}.c-ab{grid-area:ab}.c-s{grid-area:s}.c-e{grid-area:e}.c-p{grid-area:p}.c-k{grid-area:k}.c-ist{grid-area:ist}.c-soll{grid-area:soll}.c-gz{grid-area:gz}.c-cum{grid-area:cum}
+  .dr .ml{display:block;font-size:11px;color:var(--muted);text-align:left;margin-bottom:2px}
+  .dr .n{text-align:left;font-size:14px}
+  .dr input,.dr select{padding:5px 6px;font-size:16px}
+  .dr.empty{grid-template-areas:"date date date date date sh sh add add add add add"}
+  .dr.empty .c-ab,.dr.empty .c-s,.dr.empty .c-e,.dr.empty .c-p,.dr.empty .c-k,.dr.empty .c-ist,.dr.empty .c-soll,.dr.empty .c-gz,.dr.empty .c-cum{display:none}
+  .dr.empty .xadd{display:block;grid-area:add;padding:4px 0;font-size:14px;text-align:right}
+  .dr.empty{padding:6px 0}
+  .dr.dsum{grid-template-columns:repeat(4,minmax(0,1fr));grid-template-areas:"date date date date" "ist soll gz cum"}
+  .dr.dsum .c-soll{display:block}
+}
+table.ov .smx{display:none}
+@media (max-width:640px){table.ov .xs{display:none} table.ov .lgx{display:none} table.ov .smx{display:inline} table.ov td{padding:7px 3px;font-size:13px} table.ov th{padding:6px 3px;font-size:11px} .ovcard{padding:16px 12px}}
 table.days{min-width:860px}
 table.days th:first-child,table.days td:first-child{position:sticky;left:0;background:var(--card);z-index:1}
 table.days td input,table.days td select{min-height:36px;padding:5px 8px;font-size:15px;border-radius:9px;width:100%}
@@ -229,22 +262,26 @@ function sollOf(s,ys,st){
   if(w===4)return shiftOf(s,st)==='F'?ys.sollFr:0;   // Freitag nur in Frühschichtwochen
   return ys.sollMoDo;
 }
-// Pause aus der Anwesenheitszeit (Std.): bis genau 6:00 keine Pause,
-// ab 6:01 volle 30 Min., ab 9:01 volle 45 Min. (feste Grenzen, kein gleitender Übergang).
-function legalPause(raw){
-  const m=Math.round(raw*60);
-  return m>540?0.75:m>360?0.5:0;
+// Pausenregel mit festen Grenzen:
+//  - Anwesenheit bis genau 6:00 -> keine Pause, ab 6:01 -> 30 Min.
+//  - 45 Min. (also 15 Min. mehr), sobald die Arbeitszeit über 9:00 liegt.
+//    P45='ist': Arbeitszeit = Anwesenheit − 30 Min. − Zusatzpause (Bsp. 06:00–15:05 -> 8:35 -> 30 Min.)
+//    P45='raw': Anwesenheit über 9:00 (Bsp. 06:00–15:05 -> 45 Min.)
+let P45='ist';
+function legalPause(raw,p){
+  const m=Math.round(raw*60); if(m<=360)return 0;
+  const over9=P45==='raw'?m>540:(m-30-(Number(p)||0))>540;
+  return over9?0.75:0.5;
 }
 const rawOf=e=>(e&&e.s&&e.e)?((mins(e.e)-mins(e.s)+1440)%1440)/60:0;
-// Zusatzpause = Minuten über die normale 30-Min.-Pause hinaus. Abgezogen wird die längere von
-// gesetzlicher Pause und tatsächlicher Pause (Beispiel 10 Std.: ohne Eintrag 45 Min., Zusatz 15 -> 45, Zusatz 25 -> 55).
-function pauseOf(e){const r=rawOf(e);if(!r)return 0;const lp=legalPause(r);return Math.max(lp,Math.min(lp,0.5)+(Number(e.p)||0)/60)}
+// Abgezogen wird immer: Pause nach Regel + eingetragene Zusatzpause (Beispiel 10 Std. mit Zusatz 10 -> 45 + 10 = 55 Min.)
+function pauseOf(e){const r=rawOf(e);if(!r)return 0;return legalPause(r,e.p)+(Number(e.p)||0)/60}
 function workedOf(e){
   if(!e||!e.s||!e.e)return 0;
   return Math.max(0,rawOf(e)-pauseOf(e));
 }
 // Anwesenheit, die für eine bestimmte Ist-Zeit nötig ist (für „Soll erreicht um“)
-function rawFor(net){return net<=6?net:net<=8.5?net+0.5:net+0.75}
+function rawFor(net){return net<=6?net:net<=(P45==='raw'?8.5:9)?net+0.5:net+0.75}
 // Feiertage nach Bundesland
 function easter(y){const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*m+114)/31),da=((h+l-7*m+114)%31)+1;return y+'-'+String(mo).padStart(2,'0')+'-'+String(da).padStart(2,'0')}
 const LAENDER={BW:'Baden-Württemberg',BY:'Bayern',BE:'Berlin',BB:'Brandenburg',HB:'Bremen',HH:'Hamburg',HE:'Hessen',MV:'Mecklenburg-Vorpommern',NI:'Niedersachsen',NW:'Nordrhein-Westfalen',RP:'Rheinland-Pfalz',SL:'Saarland',SN:'Sachsen',ST:'Sachsen-Anhalt',SH:'Schleswig-Holstein',TH:'Thüringen'};
@@ -274,7 +311,7 @@ function istOf(e,soll){
   return workedOf(e);
 }
 function computeYear(data,y){
-  const ys=data.years[y], st=data.settings;
+  const ys=data.years[y], st=data.settings; P45=st.p45||'ist';
   const rows=[], months=[];
   for(let m=0;m<12;m++)months.push({ist:0,soll:0,gz:0,u:0,ru:0,k:0,koa:0});
   let cum=Number(ys.startGleitzeit)||0;
@@ -523,6 +560,7 @@ async function pAdmin(){
 /* ---------- Router ---------- */
 const view={year:null,month:null,calY:null,calM:null,calMode:'m'};
 function render(){
+  P45=data.settings.p45||'ist';
   if(!user){$('#app').innerHTML='<section class="hero"><h1>Arbeitszeit.</h1><p class="sub">Bitte melde dich an, um deine Zeiten zu sehen.</p><p style="margin-top:24px"><button class="btn" id="gl">Anmelden</button></p></section>';$('#gl').onclick=gate;return}
   if(user==='admin'){$$('nav a.tab').forEach(a=>a.classList.toggle('on',a.classList.contains('adm')));return pAdmin()}
   const r=(location.hash.replace(/^#\//,'')||'start').split('?')[0];
@@ -603,7 +641,7 @@ function pRechner(){
       <label class="f">Arbeitsende<input type="time" id="re" value="${e.e||''}"></label>
       <label class="f">Zusatzpause (Min.)<input type="number" id="rp" min="0" step="1" inputmode="numeric" value="${e.p||''}"></label>
     </div>
-    <p class="note" style="margin:12px 0 0">Pause wird automatisch abgezogen: bis 6 Std. keine, über 6 Std. 30 Min., über 9 Std. 45 Min. Zusatzpause = Minuten, die du länger als die normalen 30 Min. Pause gemacht hast (zählt bei langen Tagen auf die 45 Min. an). Arbeitsende nach Mitternacht wird erkannt.</p>
+    <p class="note" style="margin:12px 0 0">Pause wird automatisch abgezogen: bis 6:00 Std. Anwesenheit keine, ab 6:01 Std. 30 Min., ab über 9 Std. Arbeitszeit 45 Min. (einstellbar im Zahnrad). Eine eingetragene Zusatzpause wird immer zusätzlich abgezogen. Arbeitsende nach Mitternacht wird erkannt.</p>
   </div>
   <div class="grid g4" id="rout"></div>
   <div class="card" style="margin-top:16px"><div class="row"><button class="btn" id="rsave">In Zeiterfassung übernehmen</button><span class="muted small" id="rmsg"></span></div></div>
@@ -656,11 +694,11 @@ function pZeiten(){
       ${data.years[String(y-1)]?'<p style="margin:12px 0 0"><button class="btn sec" id="carry">Gleitzeit und Resturlaub aus '+(y-1)+' übernehmen</button></p>':''}
     </details>
   </div>
-  <div class="card"><h3>Monatsübersicht</h3><div class="scroll"><table id="ov"></table></div></div>
+  <div class="card ovcard"><h3>Monatsübersicht</h3><table id="ov" class="ov"></table></div>
   <div class="calhead" style="margin-top:48px"><h2 id="mt"></h2><button class="btn sec" id="pdf">Monatsbericht (PDF)</button></div>
   <div class="pills nowrap" style="margin-bottom:14px">${MON.map((m,k)=>`<button class="pill ${k===view.month?'on':''}" data-m="${k}">${m.slice(0,3)}</button>`).join('')}</div>
-  <div class="card" style="padding:12px 0"><div class="scroll"><table class="days" id="dt"></table></div></div>
-  <p class="note">Abwesenheit: K = krank, k.o.A. = krank ohne Attest, U = Urlaub, U/2 = halber Urlaubstag, RU = Resturlaub aus dem Vorjahr, RU/2 = halber Resturlaubstag, F = Feiertag. Feiertage werden automatisch eingetragen (Bundesland im Zahnrad). Ein Tag mit Beginn, aber ohne Ende zählt erst zur Gleitzeit, wenn das Ende eingetragen ist. Pause: bis 6 Std. keine, über 6 Std. 30 Min., über 9 Std. 45 Min.; Zusatzpause = Minuten über die normalen 30 Min. hinaus. Die Schicht wechselt wochenweise; Freitage zählen nur in Frühschichtwochen. Einträge erscheinen automatisch im Kalender.</p>`;
+  <div class="card dlist" id="dt"></div>
+  <p class="note">Abwesenheit: K = krank, k.o.A. = krank ohne Attest, U = Urlaub, U/2 = halber Urlaubstag, RU = Resturlaub aus dem Vorjahr, RU/2 = halber Resturlaubstag, F = Feiertag. Feiertage werden automatisch eingetragen (Bundesland im Zahnrad). Ein Tag mit Beginn, aber ohne Ende zählt erst zur Gleitzeit, wenn das Ende eingetragen ist. Pause: bis 6 Std. keine, über 6 Std. 30 Min., über 9 Std. 45 Min., jeweils plus eingetragener Zusatzpause. Die Schicht wechselt wochenweise; Freitage zählen nur in Frühschichtwochen. Einträge erscheinen automatisch im Kalender.</p>`;
   $$('[data-y]').forEach(b=>b.onclick=()=>{view.year=b.dataset.y;view.month=null;pZeiten()});
   $('#addy').onclick=()=>{const n=prompt('Welches Jahr hinzufügen?',String(Number(years[years.length-1])+1));if(!n)return;if(!/^20\d\d$/.test(n.trim()))return alert('Bitte eine Jahreszahl wie 2027 eingeben.');ensureYear(n.trim());save();view.year=n.trim();view.month=0;pZeiten()};
   $$('[data-ys]').forEach(i=>i.onchange=()=>{ys[i.dataset.ys]=Number(i.value)||0;save();refreshZ()});
@@ -673,28 +711,34 @@ function drawMonth(){
   const y=view.year, m=view.month, t=today(), pre=y+'-'+String(m+1).padStart(2,'0');
   $('#mt').textContent=MON[m]+' '+y+'.';
   const c=computeYear(data,y), rows=c.rows.filter(r=>r.d.startsWith(pre));
-  $('#dt').innerHTML=`<thead><tr><th>Datum</th><th class="l">Schicht</th><th class="l">Abwesenheit</th><th class="l">Beginn</th><th class="l">Ende</th><th class="l">Zusatzpause</th><th>Ist</th><th>Soll</th><th class="l">Korrektur</th><th>Gleitzeit Tag</th><th>Gleitzeit gesamt</th></tr></thead><tbody>`+
-  rows.map(r=>{const e=data.days[r.d]||{}, w=wd(r.d);
-    return `<tr data-d="${r.d}" class="${w>4||r.hn?'we':''} ${r.d===t?'today':''}">
-      <td>${DOW[w]} ${dShort(r.d)}${r.hn?`<br><span class="note">${esc(r.hn)}</span>`:''}</td>
-      <td class="l"><span class="badge b-${r.soll>0?r.shift:'0'}">${r.soll>0?(r.shift==='F'?'Früh':'Spät'):'frei'}</span></td>
-      <td class="in"><select data-k="a" aria-label="Abwesenheit" title="${r.hn?esc(r.hn):''}"><option value="">${r.hn&&!e.a?'F (auto)':''}</option>${ABS.map(a=>`<option ${e.a===a[0]?'selected':''}>${a[0]}</option>`).join('')}</select></td>
-      <td class="in"><input type="time" data-k="s" value="${e.s||''}" aria-label="Arbeitsbeginn"></td>
-      <td class="in"><input type="time" data-k="e" value="${e.e||''}" aria-label="Arbeitsende"></td>
-      <td class="in"><input type="number" data-k="p" min="0" step="1" inputmode="numeric" value="${e.p||''}" placeholder="Min." aria-label="Zusatzpause in Minuten" style="width:76px"></td>
-      <td data-c="ist"></td><td data-c="soll"></td>
-      <td class="in"><input type="number" data-k="k" step="0.01" inputmode="decimal" value="${e.k||''}" placeholder="Std." aria-label="Gleitzeitkorrektur" style="width:84px"></td>
-      <td data-c="gz"></td><td data-c="cum"></td></tr>`}).join('')+
-  `</tbody><tfoot><tr class="sum"><td>Monatssumme</td><td></td><td></td><td></td><td></td><td></td><td data-s="ist"></td><td data-s="soll"></td><td></td><td data-s="gz"></td><td data-s="cum"></td></tr></tfoot>`;
+  const cell=(lab,inner,cl)=>`<div class="dc ${cl}"><span class="ml">${lab}</span>${inner}</div>`;
+  $('#dt').innerHTML=`<div class="dr dh"><div class="dc c-date">Datum</div><div class="dc c-sh">Schicht</div><div class="dc c-ab">Abwesenheit</div><div class="dc c-s">Beginn</div><div class="dc c-e">Ende</div><div class="dc c-p">Zusatzpause</div><div class="dc c-ist n">Ist</div><div class="dc c-soll n">Soll</div><div class="dc c-k">Korrektur</div><div class="dc c-gz n">Gleitzeit Tag</div><div class="dc c-cum n">Gesamt</div></div>`+
+  rows.map(r=>{const e=data.days[r.d]||{}, w=wd(r.d), off=r.soll===0&&!e.a&&!e.s&&!e.e&&!e.k&&!e.p;
+    return `<div class="dr ${w>4||r.hn?'we':''} ${r.d===t?'today':''} ${off?'empty':''}" data-d="${r.d}">
+      <div class="dc c-date"><b>${DOW[w]} ${dShort(r.d)}</b>${r.hn?`<span class="note hn">${esc(r.hn)}</span>`:''}${r.soll?`<span class="msoll">Soll ${f2(r.soll)} Std.</span>`:''}</div>
+      <div class="dc c-sh"><span class="badge b-${r.soll>0?r.shift:'0'}">${r.soll>0?(r.shift==='F'?'Früh':'Spät'):'frei'}</span></div>
+      ${cell('Abwesenheit',`<select data-k="a" aria-label="Abwesenheit" title="${r.hn?esc(r.hn):''}"><option value="">${r.hn&&!e.a?'F (auto)':'–'}</option>${ABS.map(a=>`<option value="${a[0]}" ${e.a===a[0]?'selected':''}>${a[0]}</option>`).join('')}</select>`,'c-ab')}
+      ${cell('Beginn',`<input type="time" data-k="s" value="${esc(e.s||'')}" aria-label="Arbeitsbeginn">`,'c-s')}
+      ${cell('Ende',`<input type="time" data-k="e" value="${esc(e.e||'')}" aria-label="Arbeitsende">`,'c-e')}
+      ${cell('Zusatzpause',`<input type="number" data-k="p" min="0" step="1" inputmode="numeric" value="${esc(e.p||'')}" placeholder="Min." aria-label="Zusatzpause in Minuten">`,'c-p')}
+      ${cell('Ist','<span data-c="ist"></span>','c-ist n')}
+      ${cell('Soll','<span data-c="soll"></span>','c-soll n')}
+      ${cell('Korrektur',`<input type="number" data-k="k" step="0.01" inputmode="decimal" value="${esc(e.k||'')}" placeholder="Std." aria-label="Gleitzeitkorrektur">`,'c-k')}
+      ${cell('Gleitzeit Tag','<span data-c="gz"></span>','c-gz n')}
+      ${cell('Gesamt','<span data-c="cum"></span>','c-cum n')}
+      ${off?'<button class="btn ghost xadd" aria-label="Zeiten eintragen">＋ Eintragen</button>':''}
+    </div>`}).join('')+
+  `<div class="dr dsum"><div class="dc c-date"><b>Monatssumme</b></div>${cell('Ist','<b data-s="ist"></b>','c-ist n')}${cell('Soll','<b data-s="soll"></b>','c-soll n')}${cell('Gleitzeit Monat','<b data-s="gz"></b>','c-gz n')}${cell('Stand Monatsende','<b data-s="cum"></b>','c-cum n')}</div>`;
   $$('#dt [data-k]').forEach(i=>i.onchange=()=>{
-    const k=i.dataset.k, d=i.closest('tr').dataset.d;
+    const k=i.dataset.k, d=i.closest('.dr').dataset.d;
     setDay(d,{[k]:(k==='p'||k==='k')?(i.value===''?'':Number(i.value)):i.value}); refreshZ();
   });
+  $$('#dt .xadd').forEach(b=>b.onclick=()=>{const r=b.closest('.dr');r.classList.remove('empty');b.remove();$('[data-k=s]',r).focus()});
   refreshZ();
 }
 function refreshZ(){
   const y=view.year, m=view.month, c=computeYear(data,y), by=Object.fromEntries(c.rows.map(r=>[r.d,r]));
-  $$('#dt tbody tr').forEach(tr=>{const r=by[tr.dataset.d], e=data.days[r.d]||{}, act=(r.a&&(r.soll>0||e.a))||(e.s&&e.e)||e.k;
+  $$('#dt .dr[data-d]').forEach(tr=>{const r=by[tr.dataset.d], e=data.days[r.d]||{}, act=(r.a&&(r.soll>0||e.a))||(e.s&&e.e)||e.k;
     const ic=$('[data-c=ist]',tr);
     if(r.open){ic.innerHTML=r.d===today()?'<span class="badge b-ev">läuft</span>':'<span class="badge a-koA" title="Ohne Arbeitsende zählt der Tag nicht zur Gleitzeit">Ende fehlt</span>'}
     else ic.textContent=r.ist?f2(r.ist):act?f2(0):'';
@@ -702,15 +746,15 @@ function refreshZ(){
     $('[data-c=soll]',tr).textContent=r.soll?f2(r.soll):'';
     const g=$('[data-c=gz]',tr);g.textContent=act?sg(r.gz):'';g.className=act?cls(r.gz):'';
     const cu=$('[data-c=cum]',tr);cu.textContent=sg(r.cum);cu.className=cls(r.cum);
-    const b=$('.badge',tr);b.className='badge b-'+(r.soll>0?r.shift:'0');
+    const b=$('.c-sh .badge',tr);b.className='badge b-'+(r.soll>0?r.shift:'0');
   });
   const M=c.months[m], last=c.rows.filter(r=>Number(r.d.slice(5,7))-1===m).pop();
   $('[data-s=ist]').textContent=f2(M.ist);$('[data-s=soll]').textContent=f2(M.soll);
   $('[data-s=gz]').textContent=sg(M.gz);$('[data-s=gz]').className=cls(M.gz);
   $('[data-s=cum]').textContent=sg(last.cum);$('[data-s=cum]').className=cls(last.cum);
-  const line=(n,M,c2)=>`<tr class="${c2||''}"><td>${n}</td><td>${f2(M.ist)}</td><td>${f2(M.soll)}</td><td class="${cls(M.gz)}">${sg(M.gz)}</td><td>${dnum(M.u)}</td><td>${dnum(M.ru)}</td><td>${dnum(M.k)}</td><td>${dnum(M.koa)}</td></tr>`;
-  $('#ov').innerHTML='<thead><tr><th>Monat</th><th>Ist-Stunden</th><th>Soll-Stunden</th><th>Gleitzeit Monat</th><th>Urlaubstage</th><th>Resturlaub</th><th>Krankentage</th><th>k.o.A.-Tage</th></tr></thead><tbody>'+
-    c.months.map((M,k)=>line(MON[k],M)).join('')+line('Gesamt',c.tot,'sum')+'</tbody>';
+  const line=(n,M,c2)=>`<tr class="${c2||''}"><td>${n}</td><td>${f2(M.ist)}</td><td>${f2(M.soll)}</td><td class="${cls(M.gz)}">${sg(M.gz)}</td><td>${dnum(M.u)}</td><td class="xs">${dnum(M.ru)}</td><td>${dnum(M.k)}</td><td class="xs">${dnum(M.koa)}</td></tr>`;
+  $('#ov').innerHTML='<thead><tr><th>Monat</th><th>Ist<span class="lgx">-Stunden</span></th><th>Soll<span class="lgx">-Stunden</span></th><th>Gleitzeit<span class="lgx"> Monat</span></th><th>Urlaub<span class="lgx">stage</span></th><th class="xs">Resturlaub</th><th>Krank<span class="lgx">entage</span></th><th class="xs">k.o.A.-Tage</th></tr></thead><tbody>'+
+    c.months.map((M,k)=>line(`<span class="lgx">${MON[k]}</span><span class="smx">${MON[k].slice(0,3)}</span>`,M)).join('')+line('Gesamt',c.tot,'sum')+'</tbody>';
   $('#zstats').innerHTML=`
     <div class="card stat"><div class="l">Gleitzeit gesamt</div><div class="v ${cls(c.end)}">${sg(c.end)}</div><div class="s">Stunden, inkl. Korrekturen</div></div>
     <div class="card stat"><div class="l">Verbleibende Urlaubstage</div><div class="v">${dnum(c.rest)}</div><div class="s">${dnum(c.tot.u)} von ${dnum(data.years[y].urlaub)} genommen/geplant</div></div>
@@ -904,7 +948,7 @@ function monthPdf(y,m){
   pdf.text(cols[10][0],y0+6,s2(M.gz),8.5,true,'r'); pdf.text(cols[11][0],y0+6,s2(last.cum),8.5,true,'r');
   if(y0+60<pdf.H-20){const ys2=pdf.H-34;pdf.line(L,ys2,L+200,ys2,.5,.3);pdf.text(L,ys2+11,'Datum, Unterschrift Mitarbeiter/in',7.5,false,'l',.4);
     pdf.line(pdf.W-L-200,ys2,pdf.W-L,ys2,.5,.3);pdf.text(pdf.W-L-200,ys2+11,'Datum, Unterschrift Vorgesetzte/r',7.5,false,'l',.4)}
-  pdf.text(L,pdf.H-14,'Pause: bis 6 Std. keine, über 6 Std. 30 Min., über 9 Std. 45 Min. (Zusatzpause = Minuten über 30 Min.). Grau: Wochenende/Feiertag.',7,false,'l',.5);
+  pdf.text(L,pdf.H-14,'Pause: bis 6 Std. keine, über 6 Std. 30 Min., über 9 Std. 45 Min. (jeweils plus Zusatzpause). Grau: Wochenende/Feiertag.',7,false,'l',.5);
   const a=document.createElement('a'); a.href=URL.createObjectURL(pdf.blob()); a.download=`Monatsbericht_${y}-${String(m+1).padStart(2,'0')}_${user}.pdf`;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }
@@ -972,6 +1016,10 @@ function openSettings(){
         <label class="f">Schicht in dieser Woche<select id="ss"><option value="F" ${s.anchorShift==='F'?'selected':''}>Frühschicht</option><option value="S" ${s.anchorShift==='S'?'selected':''}>Spätschicht</option></select></label>
       </div><p class="note" style="margin:6px 0 0">Ab dieser Woche wechselt die Schicht wöchentlich – auch über den Jahreswechsel hinaus.</p>
     </div>
+    <div class="sect"><div class="t">Pausenregel</div>
+      <label class="f">45 Min. Pause ab …<select id="sp45"><option value="ist" ${(s.p45||'ist')==='ist'?'selected':''}>über 9 Std. Arbeitszeit (nach Abzug der 30 Min.)</option><option value="raw" ${s.p45==='raw'?'selected':''}>über 9 Std. Anwesenheit</option></select></label>
+      <p class="note" style="margin:6px 0 0">Beispiel 06:00–15:05: „Arbeitszeit“ → 30 Min. Pause, Ist 8:35 · „Anwesenheit“ → 45 Min. Pause, Ist 8:20. Bis 6:00 Anwesenheit keine Pause, ab 6:01 30 Min. Eine Zusatzpause wird immer zusätzlich abgezogen.</p>
+    </div>
     <div class="sect"><div class="t">Feiertage</div>
       <label class="f">Bundesland<select id="sl"><option value="">Keine automatischen Feiertage</option>${Object.entries(LAENDER).map(([k,v])=>`<option value="${k}" ${s.land===k?'selected':''}>${v}</option>`).join('')}</select></label>
       <p class="note" style="margin:6px 0 0">Feiertage werden automatisch im Kalender und in der Zeiterfassung eingetragen. Ein eigener Eintrag am selben Tag hat Vorrang.</p>
@@ -1013,6 +1061,7 @@ function openSettings(){
   const sh=()=>{const v=$('#sa').value;if(!v)return;data.settings.anchor=mondayOf(v);data.settings.anchorShift=$('#ss').value;$('#sa').value=data.settings.anchor;save()};
   $('#sa').onchange=sh;$('#ss').onchange=sh;
   $('#sl').onchange=()=>{data.settings.land=$('#sl').value;save()};
+  $('#sp45').onchange=()=>{data.settings.p45=$('#sp45').value;P45=data.settings.p45;save()};
   $('#si').onclick=()=>$('#sf').click();
   $('#sf').onchange=async e=>{const f=e.target.files[0];if(!f)return;
     try{const j=JSON.parse(await f.text());if(!j.days||!j.years)throw 0;
