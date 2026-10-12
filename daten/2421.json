@@ -980,8 +980,9 @@
    "id": "mv0kynzpvkv",
    "title": "Zwiebeln für Mama rauslegen & früh mitnehmen",
    "due": "2026-10-10",
-   "done": false,
-   "prio": "1"
+   "done": true,
+   "prio": "1",
+   "doneAt": "2026-10-12"
   },
   {
    "id": "mv0mcdy532v",
