@@ -998,8 +998,9 @@
    "id": "mv0mcdy532v",
    "title": "Fabian nochmal wegen Jordan fragen",
    "due": "2026-10-12",
-   "done": false,
-   "prio": "2"
+   "done": true,
+   "prio": "2",
+   "doneAt": "2026-10-14"
   },
   {
    "id": "mv0uk8kkth5",
