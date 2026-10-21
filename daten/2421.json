@@ -1065,8 +1065,9 @@
    "id": "mv0uk8kkth5",
    "title": "Termin Fr. Dr. Moritz",
    "due": "2026-10-20",
-   "done": false,
-   "prio": "3"
+   "done": true,
+   "prio": "3",
+   "doneAt": "2026-10-21"
   },
   {
    "id": "mv0ukklf8mb",
