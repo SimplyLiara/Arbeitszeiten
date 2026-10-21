@@ -19,6 +19,13 @@
    "urlaub": 30,
    "sollMoDo": 8.25,
    "sollFr": 8
+  },
+  "2028": {
+   "startGleitzeit": 0,
+   "restVorjahr": 7,
+   "urlaub": 30,
+   "sollMoDo": 8.25,
+   "sollFr": 8
   }
  },
  "days": {
@@ -973,6 +980,9 @@
    "s": "06:00"
   },
   "2027-07-01": {
+   "a": "U"
+  },
+  "2028-01-03": {
    "a": "U"
   }
  },
