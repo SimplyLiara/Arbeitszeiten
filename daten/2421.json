@@ -15,10 +15,11 @@
    "restVorjahr": 3
   },
   "2027": {
-   "startGleitzeit": 0,
+   "startGleitzeit": -11.88,
    "urlaub": 30,
    "sollMoDo": 8.25,
-   "sollFr": 8
+   "sollFr": 8,
+   "restVorjahr": 5
   },
   "2028": {
    "startGleitzeit": 0,
