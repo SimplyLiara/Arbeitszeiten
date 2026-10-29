@@ -1102,8 +1102,9 @@
    "id": "mvpbpx6lyqa",
    "title": "Termin Fr. Heßler",
    "due": "2026-10-28",
-   "done": false,
-   "prio": "2"
+   "done": true,
+   "prio": "2",
+   "doneAt": "2026-10-29"
   }
  ]
 }
