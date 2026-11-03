@@ -665,11 +665,19 @@ function showLogin(reg){
         if(u.db.admin?await checkPw(u.db.admin,pw):pw==='admin')return enter('admin');
       }else if(await checkPw(u.db.users[id],pw))return enter(id);
       m.textContent='Personalnummer oder Passwort falsch.';
-    }catch(e){m.textContent=netMsg(e)}
+    }catch(e){m.textContent=netMsg(e);
+      if(/Token ungültig|Repository nicht gefunden|Kein Zugriff/.test(m.textContent)&&!$('#lfix')){
+        m.insertAdjacentHTML('afterend','<div class="card" id="lfix" style="margin:12px 0 0;padding:14px;background:var(--soft)"><p class="small" style="margin:0 0 10px">Die gespeicherten GitHub-Zugangsdaten auf diesem Gerät funktionieren nicht mehr (z. B. weil das Token gelöscht oder das Repository gewechselt wurde).</p><button class="btn sec" id="lfixb">Zugang neu einrichten</button></div>');
+        $('#lfixb').onclick=resetAccess}}
     if($('#lo'))$('#lo').disabled=false;
   };
   $('#lo').onclick=go; $$('#dlgc input').forEach(i=>i.onkeydown=e=>{if(e.key==='Enter')go()}); $('#lu').focus();
   loadUsers().then(u=>{if(u.missing&&$('#lm')&&!$('#lm').textContent)$('#lm').innerHTML='<b>⚠️ '+esc(u.missing)+'</b>'}).catch(()=>{});
+}
+// Gespeicherte Zugangsdaten auf diesem Gerät verwerfen und neu freischalten (Team-Passwort bzw. neues Token)
+function resetAccess(){
+  [LSC,LSU,LSB].forEach(ls.del); cfg={owner:'',repo:'',branch:'main',path:'data.json',token:''}; user=null; sha=null;
+  if($('#dlg').open)closeDlg(); history.replaceState(null,'',location.pathname+'#/start'); gate();
 }
 async function gate(){
   document.body.classList.toggle('admin',user==='admin'); document.body.classList.toggle('out',!user);
@@ -1372,7 +1380,9 @@ async function offerUnlock(){
       cfg=Object.assign(cfg,c); ls.set(LSC,JSON.stringify(cfg)); ls.set(LSD,'0'); sha=null;
       const t=await repoGet().catch(()=>null);
       if(t&&t.ok){closeDlg();return gate()}
-      $('#um').textContent='Passwort stimmt, aber GitHub meldet: '+(t?ghErr(t):'keine Verbindung');
+      $('#um').innerHTML='Passwort stimmt, aber GitHub meldet: '+esc(t?ghErr(t):'keine Verbindung')+'.<br><span class="muted">Die Datei zugang.json enthält vermutlich noch ein altes Token. Als Admin kannst du hier das neue Token eintragen.</span>';
+      if(t&&!$('#unew')){$('#uo').insertAdjacentHTML('beforebegin','<button class="btn ghost" id="unew">Neues Token eintragen (Admin)</button>');
+        $('#unew').onclick=()=>{cfg.token='';ls.set(LSC,JSON.stringify(cfg));closeDlg();openSettings()}}
     }catch(e){$('#um').textContent='Falsches Passwort.'}
     if($('#uo'))$('#uo').disabled=false;
   };
