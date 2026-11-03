@@ -267,6 +267,13 @@ table.days th.l,table.days td.l{text-align:left}
 .yc.abs-K{background:var(--k-bg);color:var(--k);font-weight:700} .yc.abs-koA{background:var(--koa-bg);color:var(--koa);font-weight:700} .yc.abs-Ft{background:var(--f-bg);color:var(--f);font-weight:700}
 .yc.hasev::after{content:"";position:absolute;bottom:2px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--ev)}
 dialog{border:0;border-radius:22px;padding:0;background:var(--card);color:var(--text);width:min(560px,calc(100vw - 24px));max-height:calc(100dvh - 24px)}
+[hidden]{display:none!important}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translate(-50%,16px);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;
+  background:var(--text);color:var(--bg);border-radius:14px;padding:8px 8px 8px 16px;display:flex;gap:12px;align-items:center;font-size:15px;line-height:1.3;
+  box-shadow:0 10px 30px rgba(0,0,0,.25);z-index:1000;width:max-content;max-width:calc(100vw - 32px)}
+#toast.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+#toast span{padding:6px 0}
+#toast button{flex:none;background:none;border:1.5px solid currentColor;color:inherit;font:inherit;font-weight:600;border-radius:10px;padding:6px 12px;cursor:pointer}
 dialog::backdrop{background:rgba(0,0,0,.45);backdrop-filter:blur(4px)}
 dialog .dl{padding:24px;overflow-y:auto}
 dialog h3{font-size:24px}
@@ -380,7 +387,8 @@ function computeYear(data,y){
   const ys=data.years[y], st=data.settings; P45=st.p45||'ist';
   const rows=[], months=[];
   for(let m=0;m<12;m++)months.push({ist:0,soll:0,gz:0,u:0,ru:0,k:0,koa:0});
-  let cum=Number(ys.startGleitzeit)||0;
+  const st0=yearStart(data,y);
+  let cum=st0.gz;
   const tot={ist:0,soll:0,gz:0,u:0,ru:0,k:0,koa:0};
   for(let d=y+'-01-01';d.slice(0,4)==y;d=addDays(d,1)){
     const e=dayEntry(data,d), soll=sollOf(d,ys,st), ist=istOf(e,soll);
@@ -393,12 +401,33 @@ function computeYear(data,y){
     rows.push({d,shift:shiftOf(d,st),soll,ist,gz,cum,open,a:e.a||'',hn:e.hn||'',pause:pauseOf(e)});
   }
   for(const M of months)for(const k in tot)tot[k]+=M[k];
-  return {rows,months,tot,end:cum,rest:(Number(ys.urlaub)||0)-tot.u,restVJ:(Number(ys.restVorjahr)||0)-tot.ru};
+  return {rows,months,tot,end:cum,rest:(Number(ys.urlaub)||0)-tot.u,restVJ:st0.ru-tot.ru,start:st0};
+}
+// Anfangswerte eines Jahres: automatisch live aus dem Vorjahr, solange nicht von Hand überschrieben.
+// Alt-Daten ohne Kennzeichen: Jahre ab 2027 gelten als automatisch (wurden als Momentaufnahme angelegt).
+const isAuto=(ys,k,y)=>ys[k]===true||(ys[k]===undefined&&Number(y)>=2027);
+// Vorjahr zwischenspeichern, solange sich die Daten nicht ändern (spart Rechenzeit auf der Startseite)
+let PYC={sig:null,y:null,v:null};
+function prevYear(data,y){
+  const sig=JSON.stringify([data.years,data.settings,data.days]);
+  if(PYC.sig!==sig||PYC.y!==y){const keep=P45;PYC={sig,y,v:computeYear(data,y)};P45=keep}
+  return PYC.v;
+}
+function yearStart(data,y){
+  y=String(y); const ys=data.years[y], prev=data.years[String(y-1)];
+  const r={gz:Number(ys.startGleitzeit)||0,ru:Number(ys.restVorjahr)||0,autoG:false,autoR:false};
+  if(prev){
+    const aG=isAuto(ys,'gzAuto',y), aR=isAuto(ys,'ruAuto',y);
+    if(aG||aR){const pc=prevYear(data,String(y-1));
+      if(aG){r.gz=Math.round(pc.end*100)/100;r.autoG=true}
+      if(aR){r.ru=Math.max(0,pc.rest);r.autoR=true}}
+  }
+  return r;
 }
 //CORE-END
 
 /* ---------- Daten & Speicher ---------- */
-const LS='azeit.data', LSC='azeit.cfg', LSD='azeit.dirty', LSU='azeit.user', UF='users.json';
+const LS='azeit.data', LSC='azeit.cfg', LSD='azeit.dirty', LSU='azeit.user', LSB='azeit.base', UF='users.json';
 const ABS=[['U','Urlaub'],['U/2','½ Urlaub'],['RU','Resturlaub'],['RU/2','½ Resturlaub'],['K','Krank'],['k.o.A.','Krank o. Attest'],['F','Feiertag']];
 const ABSN=Object.fromEntries(ABS), ACL={'U':'U','U/2':'U2','RU':'RU','RU/2':'RU2','K':'K','k.o.A.':'koA','F':'Ft'};
 const MON=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
@@ -407,15 +436,19 @@ const SHN={F:'Frühschicht',S:'Spätschicht'};
 // Speicherort: dauerhaft (localStorage) oder nur für diese Sitzung (sessionStorage, z. B. fremder PC)
 let store=null; try{store=sessionStorage.getItem('azeit.cfg')?sessionStorage:localStorage}catch(e){}
 const ls={get(k){try{return store.getItem(k)}catch(e){return null}},set(k,v){try{store.setItem(k,v)}catch(e){}},del(k){try{localStorage.removeItem(k);sessionStorage.removeItem(k)}catch(e){}}};
-function blank(){return {version:1,settings:{anchor:'2026-01-05',anchorShift:'S',land:'ST'},years:{'2026':{startGleitzeit:0,urlaub:30,sollMoDo:8.25,sollFr:8}},days:{},events:[],todos:[]}}
+function blank(){return {version:1,settings:{anchor:'2026-01-05',anchorShift:'S',land:'ST'},years:{'2026':{startGleitzeit:0,urlaub:30,sollMoDo:8.25,sollFr:8}},days:{},mt:{},events:[],todos:[]}}
 function normalize(d){
   const b=blank(); if(!d||typeof d!=='object')return b;
   d.settings=Object.assign(b.settings,d.settings||{}); d.years=d.years&&Object.keys(d.years).length?d.years:b.years;
-  d.days=d.days||{}; d.events=Array.isArray(d.events)?d.events:[]; d.todos=Array.isArray(d.todos)?d.todos:[]; d.version=1; return d;
+  d.days=d.days||{}; d.events=Array.isArray(d.events)?d.events:[]; d.todos=Array.isArray(d.todos)?d.todos:[]; d.version=1;
+  d.mt=d.mt&&typeof d.mt==='object'?d.mt:{};                       // Änderungszeitpunkt je Tag (für das Zusammenführen)
+  for(const x of [...d.events,...d.todos])if(!x.id)x.id=Math.random().toString(36).slice(2,10);
+  return d;
 }
 let data=normalize(JSON.parse(ls.get(LS)||'null'));
 let cfg=Object.assign({owner:'',repo:'',branch:'main',path:'data.json',token:''},JSON.parse(ls.get(LSC)||'{}'));
 let sha=null, pushTimer=null, pushing=false, again=false;
+let saveN=0, undoAt=null, toastT=null;
 let user=ls.get(LSU)||null;                        // Personalnummer, 'admin' oder null
 const isUser=()=>!!user&&user!=='admin', dpath=()=>'daten/'+user+'.json';
 
@@ -444,7 +477,7 @@ const $=(q,el=document)=>el.querySelector(q), $$=(q,el=document)=>[...el.querySe
 function ensureYear(y){
   y=String(y); if(data.years[y])return data.years[y];
   const p=data.years[String(y-1)];
-  data.years[y]=p?{startGleitzeit:Math.round(computeYear(data,String(y-1)).end*100)/100,restVorjahr:Math.max(0,computeYear(data,String(y-1)).rest),urlaub:p.urlaub,sollMoDo:p.sollMoDo,sollFr:p.sollFr}
+  data.years[y]=p?{startGleitzeit:0,restVorjahr:0,gzAuto:true,ruAuto:true,urlaub:p.urlaub,sollMoDo:p.sollMoDo,sollFr:p.sollFr}
                  :{startGleitzeit:0,urlaub:30,sollMoDo:8.25,sollFr:8};
   return data.years[y];
 }
@@ -453,9 +486,11 @@ function setDay(d,patch){
   const e=Object.assign({},data.days[d]||{},patch);
   for(const k of Object.keys(e))if(e[k]===''||e[k]==null||(typeof e[k]==='number'&&(!isFinite(e[k])||e[k]===0)))delete e[k];
   if(Object.keys(e).length)data.days[d]=e; else delete data.days[d];
+  data.mt[d]=Date.now();
   save();
 }
 function save(){
+  saveN++; if(undoAt!==null&&saveN>undoAt)hideToast();
   ls.set(LS,JSON.stringify(data)); ls.set(LSD,'1');
   if(!syncOn()){status('','Lokal');return}
   status('busy','Speichert …'); clearTimeout(pushTimer); pushTimer=setTimeout(push,1200);
@@ -473,15 +508,52 @@ function api(method,body,path=dpath()){
 }
 const repoGet=()=>fetch('https://api.github.com/repos/'+encodeURIComponent(cfg.owner)+'/'+encodeURIComponent(cfg.repo),{cache:'no-store',headers:{Authorization:'Bearer '+cfg.token,Accept:'application/vnd.github+json'}});
 function ghErr(r){return r.status===401?'Token ungültig':r.status===403?'Kein Zugriff (Token-Rechte?)':r.status===404?'Repository nicht gefunden':'Fehler '+r.status}
+/* ---------- Zusammenführen (zwei Geräte) ----------
+   Drei-Wege-Vergleich: base = Stand, den dieses Gerät zuletzt mit GitHub abgeglichen hat,
+   mine = lokaler Stand, theirs = aktueller Stand auf GitHub.
+   Nur auf einer Seite geändert -> diese Änderung gewinnt. Auf beiden geändert -> bei Tagen die neuere, sonst die lokale. */
+const canon=v=>v===undefined?'∅':JSON.stringify(v,(k,x)=>x&&typeof x==='object'&&!Array.isArray(x)?Object.keys(x).sort().reduce((o,q)=>(o[q]=x[q],o),{}):x);
+function pick3(b,m,t,tm,tt){
+  const cm=canon(m), ct=canon(t); if(cm===ct)return m;
+  const cb=canon(b); if(cm===cb)return t; if(ct===cb)return m;
+  return (tt||0)>(tm||0)?t:m;
+}
+function mergeMap(b,m,t,sm,st){
+  b=b||{};m=m||{};t=t||{}; const o={};
+  for(const k of new Set([...Object.keys(m),...Object.keys(t),...Object.keys(b)])){const v=pick3(b[k],m[k],t[k],sm&&sm[k],st&&st[k]);if(v!==undefined)o[k]=v}
+  return o;
+}
+function mergeList(b,m,t){
+  const ix=a=>Object.fromEntries((a||[]).filter(x=>x&&x.id).map(x=>[x.id,x])), M=ix(m), r=mergeMap(ix(b),M,ix(t));
+  const order=[...(m||[]).map(x=>x.id),...(t||[]).map(x=>x.id).filter(id=>!(id in M))];
+  return [...new Set(order)].filter(id=>id in r).map(id=>r[id]);
+}
+function merge3(base,mine,theirs){
+  base=base||{}; theirs=theirs||{};
+  const years={}; for(const y of new Set([...Object.keys(mine.years||{}),...Object.keys(theirs.years||{})])){const v=mergeMap((base.years||{})[y],(mine.years||{})[y],(theirs.years||{})[y]);if(Object.keys(v).length)years[y]=v}
+  const mt=Object.assign({},theirs.mt||{}); for(const k in mine.mt||{})mt[k]=Math.max(mt[k]||0,mine.mt[k]);
+  return {version:1,settings:mergeMap(base.settings,mine.settings,theirs.settings),years,
+    days:mergeMap(base.days,mine.days,theirs.days,mine.mt,theirs.mt),mt,
+    events:mergeList(base.events,mine.events,theirs.events),todos:mergeList(base.todos,mine.todos,theirs.todos)};
+}
+function mergeIn(theirs){
+  let base=null; try{base=JSON.parse(ls.get(LSB)||'null')}catch(e){}
+  const before=canon(data), merged=normalize(merge3(base,data,theirs));
+  data=merged; ls.set(LS,JSON.stringify(data));
+  if(canon(data)!==before){
+    toast('Änderungen von einem anderen Gerät wurden übernommen.');
+    if(!$('#dlg').open&&!/INPUT|SELECT|TEXTAREA/.test((document.activeElement||{}).tagName||''))render();
+  }
+}
 async function pull(){
   if(!syncOn())return false;
   status('busy','Lädt …');
   try{
     const r=await api('GET');
     if(r.status===200){
-      const j=await r.json(); sha=j.sha;
-      if(ls.get(LSD)==='1'){await push();return true}       // ungespeicherte lokale Änderungen zuerst hochladen
-      data=normalize(JSON.parse(b64d(j.content))); ls.set(LS,JSON.stringify(data)); status('ok','Gespeichert'); return true;
+      const j=await r.json(), txt=b64d(j.content); sha=j.sha;
+      if(ls.get(LSD)==='1'){mergeIn(JSON.parse(txt));await push();return true}   // lokale Änderungen mit GitHub-Stand zusammenführen
+      data=normalize(JSON.parse(txt)); ls.set(LS,JSON.stringify(data)); ls.set(LSB,txt); status('ok','Gespeichert'); return true;
     }
     if(r.status===404){
       const t=await fetch('https://api.github.com/repos/'+encodeURIComponent(cfg.owner)+'/'+encodeURIComponent(cfg.repo),{headers:{Authorization:'Bearer '+cfg.token,Accept:'application/vnd.github+json'}});
@@ -491,17 +563,21 @@ async function pull(){
     status('err',ghErr(r));return false;
   }catch(e){status('err','Offline – lokal gesichert');return false}
 }
-async function push(retry){
+async function push(tries=0){
   if(!syncOn())return;
   if(pushing){again=true;return}
   pushing=true; status('busy','Speichert …');
   try{
-    const body={message:'Zeiterfassung '+today()+' '+nowHM(),content:b64e(JSON.stringify(data,null,1)),branch:cfg.branch};
+    const snap=JSON.stringify(data,null,1);
+    const body={message:'Zeiterfassung '+today()+' '+nowHM(),content:b64e(snap),branch:cfg.branch};
     if(sha)body.sha=sha;
     const r=await api('PUT',body);
-    if(r.ok){sha=(await r.json()).content.sha; ls.set(LSD,'0'); status('ok','Gespeichert')}
-    else if((r.status===409||r.status===422)&&!retry){
-      const g=await api('GET'); sha=g.ok?(await g.json()).sha:null; pushing=false; return push(true);
+    if(r.ok){sha=(await r.json()).content.sha; ls.set(LSB,snap); if(JSON.stringify(data,null,1)===snap)ls.set(LSD,'0'); status('ok','Gespeichert')}
+    else if((r.status===409||r.status===422)&&tries<3){
+      // Datei wurde inzwischen von einem anderen Gerät geändert: neuen Stand holen, zusammenführen, erneut speichern
+      const g=await api('GET');
+      if(g.status===200){const j=await g.json(); sha=j.sha; mergeIn(JSON.parse(b64d(j.content)))} else sha=null;
+      pushing=false; return push(tries+1);
     }else status('err',ghErr(r));
   }catch(e){status('err','Offline – lokal gesichert')}
   pushing=false;
@@ -517,10 +593,24 @@ const u8b=u=>btoa(String.fromCharCode.apply(null,u)), bu8=b=>Uint8Array.from(ato
 async function loadUsers(){
   const r=await api('GET',null,UF);
   if(r.status===200){const j=await r.json(), db=JSON.parse(b64d(j.content)); db.users=db.users||{}; return {sha:j.sha,db}}
-  if(r.status===404){const t=await repoGet(); if(t.ok)return {sha:null,db:{users:{}}}; throw new Error(ghErr(t))}
+  if(r.status===404){
+    const t=await repoGet(); if(!t.ok)throw new Error(ghErr(t));
+    const where='im Repository „'+cfg.owner+'/'+cfg.repo+'“, Branch „'+cfg.branch+'“', info=await t.json().catch(()=>({}));
+    // Branch vorhanden? (Ein komplett leeres Repository hat noch keinen Branch – das ist eine echte Ersteinrichtung.)
+    const b=await fetch('https://api.github.com/repos/'+encodeURIComponent(cfg.owner)+'/'+encodeURIComponent(cfg.repo)+'/branches/'+encodeURIComponent(cfg.branch),{cache:'no-store',headers:{Authorization:'Bearer '+cfg.token,Accept:'application/vnd.github+json'}});
+    if(b.status===404&&info.default_branch&&info.default_branch!==cfg.branch)
+      return {sha:null,db:{users:{}},missing:'Den Branch „'+cfg.branch+'“ gibt es im Repository „'+cfg.owner+'/'+cfg.repo+'“ nicht. Dort heißt der Branch „'+info.default_branch+'“. Bitte als Admin im Zahnrad unter GitHub-Speicher korrigieren.'};
+    // Gibt es schon den Ordner daten/? Dann fehlt users.json nur (falscher Ort oder Name) – keine Ersteinrichtung.
+    // (Nur data.json ohne users.json ist dagegen die alte Einzelnutzung -> Ersteinrichtung mit Übernahme-Angebot.)
+    const a=await api('GET',null,'daten');
+    if(a.status===200)
+      return {sha:null,db:{users:{}},missing:'Benutzerliste nicht gefunden: users.json fehlt '+where+'. Dort liegen aber schon Daten. Prüfe, ob users.json direkt oben im Repository liegt (nicht in einem Unterordner) und genau so heißt.'};
+    return {sha:null,db:{users:{}}};
+  }
   throw new Error(ghErr(r));
 }
 async function saveUsers(u){
+  if(u.missing)throw new Error(u.missing+' Solange sie fehlt, wird nichts gespeichert.');
   const body={message:'Benutzer aktualisiert',content:b64e(JSON.stringify(u.db,null,1)),branch:cfg.branch}; if(u.sha)body.sha=u.sha;
   const r=await api('PUT',body,UF);
   if(!r.ok)throw new Error(r.status===409||r.status===422?'Gleichzeitige Änderung – bitte erneut versuchen.':ghErr(r));
@@ -535,13 +625,13 @@ async function checkPw(rec,pw){return !!rec&&(await pwHash(pw,rec.salt))===rec.h
 const netMsg=e=>e instanceof TypeError?'Keine Verbindung zu GitHub.':(e.message||'Fehler');
 const ID_RE=/^[A-Za-z0-9._-]{1,20}$/;
 async function enter(id,seed){
-  user=id; ls.set(LSU,id); data=seed?normalize(seed):blank(); ls.set(LS,JSON.stringify(data)); ls.set(LSD,seed?'1':'0'); sha=null;
+  user=id; ls.set(LSU,id); ls.del(LSB); data=seed?normalize(seed):normalize(blank()); ls.set(LS,JSON.stringify(data)); ls.set(LSD,seed?'1':'0'); sha=null;
   view.year=view.month=view.calY=view.calM=null;
   if($('#dlg').open)closeDlg(); location.hash='#/start'; await gate();
 }
 function logout(){
   if(ls.get(LSD)==='1'&&!confirm('Es gibt Änderungen, die noch nicht auf GitHub gespeichert sind. Trotzdem abmelden?'))return;
-  [LS,LSD,LSU].forEach(ls.del); location.hash='#/start'; location.reload();
+  [LS,LSD,LSU,LSB].forEach(ls.del); location.hash='#/start'; location.reload();
 }
 function showLogin(reg){
   openDlg(`<h3>${reg?'Registrieren':'Anmelden'}</h3>
@@ -558,6 +648,7 @@ function showLogin(reg){
     $('#lo').disabled=true;
     try{
       const u=await loadUsers();
+      if(u.missing&&(reg||id.toLowerCase()!=='admin'))throw new Error(u.missing);
       if(reg){
         if(!ID_RE.test(id)||id.toLowerCase()==='admin')throw new Error('Die Personalnummer darf nur Buchstaben und Ziffern enthalten.');
         if(pw.length<4)throw new Error('Das Passwort braucht mindestens 4 Zeichen.');
@@ -578,6 +669,7 @@ function showLogin(reg){
     if($('#lo'))$('#lo').disabled=false;
   };
   $('#lo').onclick=go; $$('#dlgc input').forEach(i=>i.onkeydown=e=>{if(e.key==='Enter')go()}); $('#lu').focus();
+  loadUsers().then(u=>{if(u.missing&&$('#lm')&&!$('#lm').textContent)$('#lm').innerHTML='<b>⚠️ '+esc(u.missing)+'</b>'}).catch(()=>{});
 }
 async function gate(){
   document.body.classList.toggle('admin',user==='admin'); document.body.classList.toggle('out',!user);
@@ -596,7 +688,8 @@ async function pAdmin(){
   const ids=Object.keys(u.db.users).sort((a,b)=>a.localeCompare(b,'de',{numeric:true}));
   $('#asub').textContent=ids.length+(ids.length===1?' Benutzer':' Benutzer')+' registriert';
   $('#abody').innerHTML=`
-    ${u.db.admin?'':'<div class="card" style="background:var(--koa-bg);color:var(--koa)"><b>Das Admin-Passwort ist noch „admin“.</b> Bitte ändere es jetzt – sonst kann jede Person mit Zugang zur Seite die Verwaltung öffnen.</div>'}
+    ${u.missing?`<div class="card" style="background:var(--k-bg);color:var(--k)"><b>⚠️ ${esc(u.missing)}</b><br><br>Registrieren und Anmelden sind gesperrt, bis die Datei gefunden wird. Hier wird nichts gespeichert.<p style="margin:12px 0 0"><button class="btn sec" id="aretry">Erneut prüfen</button></p></div>`:''}
+    ${u.db.admin||u.missing?'':'<div class="card" style="background:var(--koa-bg);color:var(--koa)"><b>Das Admin-Passwort ist noch „admin“.</b> Bitte ändere es jetzt – sonst kann jede Person mit Zugang zur Seite die Verwaltung öffnen.</div>'}
     <div class="card"><h3>Benutzer</h3>
       <ul class="list">${ids.map(id=>`<li><span class="x"><b>${esc(id)}</b><br><span class="note">registriert am ${u.db.users[id].created?dShort(u.db.users[id].created)+u.db.users[id].created.slice(0,4):'–'}</span></span>
         <button class="btn ghost" data-rp="${esc(id)}">Passwort zurücksetzen</button><button class="btn danger" data-rm="${esc(id)}">Löschen</button></li>`).join('')||'<li class="muted small">Noch niemand registriert.</li>'}</ul>
@@ -610,6 +703,7 @@ async function pAdmin(){
       <label class="f">Neues Passwort (mind. 6 Zeichen)<input type="password" id="ap" autocomplete="new-password"></label>
       <button class="btn sec" id="ab">Ändern</button></div></div>
     <p class="small" id="am" style="margin:0 4px"></p>`;
+  if($('#aretry'))$('#aretry').onclick=()=>pAdmin();
   const run=async(fn,okMsg)=>{try{await fn();await pAdmin();$('#am').textContent=okMsg;$('#am').className='small pos'}catch(e){$('#am').textContent=netMsg(e);$('#am').className='small neg'}};
   $$('[data-rp]').forEach(b=>b.onclick=()=>{const id=b.dataset.rp, pw=prompt('Neues Passwort für '+id+' (mind. 4 Zeichen):'); if(pw==null)return;
     run(async()=>{if(pw.length<4)throw new Error('Das Passwort braucht mindestens 4 Zeichen.');u.db.users[id]=Object.assign(u.db.users[id],await mkPw(pw));await saveUsers(u)},'Passwort für '+id+' wurde zurückgesetzt.')});
@@ -797,7 +891,7 @@ function pZeiten(){
   const t=today();
   if(!view.year||!data.years[view.year])view.year=data.years[t.slice(0,4)]?t.slice(0,4):Object.keys(data.years).sort().pop();
   if(view.month==null)view.month=view.year===t.slice(0,4)?Number(t.slice(5,7))-1:0;
-  const y=view.year, ys=data.years[y], years=Object.keys(data.years).sort();
+  const y=view.year, ys=data.years[y], years=Object.keys(data.years).sort(), st0=yearStart(data,y), hasPrev=!!data.years[String(y-1)];
   $('#app').innerHTML=`
   <section class="hero"><h1>Zeiterfassung.</h1><p class="sub">Arbeitszeitübersicht ${y}</p></section>
   <div class="pills" style="justify-content:center;margin-bottom:20px">
@@ -808,13 +902,13 @@ function pZeiten(){
   <div class="card" style="margin-top:16px">
     <details><summary>Einstellungen ${y}</summary>
       <div class="row" style="margin-top:14px">
-        <label class="f">Anfangs-Gleitzeit (Std.)<input type="number" step="0.01" data-ys="startGleitzeit" value="${ys.startGleitzeit}"></label>
+        <label class="f">Anfangs-Gleitzeit (Std.)<input type="number" step="0.01" data-ys="startGleitzeit" value="${st0.gz}">${hasPrev?`<span class="note">${st0.autoG?'automatisch aus '+(y-1):'von Hand eingetragen'}</span>`:''}</label>
         <label class="f">Jahresurlaub (Tage)<input type="number" step="0.5" data-ys="urlaub" value="${ys.urlaub}"></label>
-        <label class="f">Resturlaub aus ${y-1} (Tage)<input type="number" step="0.5" min="0" data-ys="restVorjahr" value="${ys.restVorjahr||0}"></label>
+        <label class="f">Resturlaub aus ${y-1} (Tage)<input type="number" step="0.5" min="0" data-ys="restVorjahr" value="${st0.ru}">${hasPrev?`<span class="note">${st0.autoR?'automatisch aus '+(y-1):'von Hand eingetragen'}</span>`:''}</label>
         <label class="f">Sollzeit Mo–Do (Std.)<input type="number" step="0.01" data-ys="sollMoDo" value="${ys.sollMoDo}"></label>
         <label class="f">Sollzeit Fr Frühschicht (Std.)<input type="number" step="0.01" data-ys="sollFr" value="${ys.sollFr}"></label>
       </div>
-      ${data.years[String(y-1)]?'<p style="margin:12px 0 0"><button class="btn sec" id="carry">Gleitzeit und Resturlaub aus '+(y-1)+' übernehmen</button></p>':''}
+      ${hasPrev?(st0.autoG&&st0.autoR?'<p class="note" style="margin:12px 0 0">Anfangs-Gleitzeit und Resturlaub werden laufend aus '+(y-1)+' übernommen. Änderst du dort noch etwas, passt sich '+y+' automatisch an. Trägst du hier selbst einen Wert ein, bleibt dieser fest.</p>':'<p style="margin:12px 0 0"><button class="btn sec" id="carry">Wieder automatisch aus '+(y-1)+' übernehmen</button></p>'):''}
     </details>
   </div>
   <div class="card ovcard"><h3>Monatsübersicht</h3><table id="ov" class="ov"></table></div>
@@ -824,8 +918,9 @@ function pZeiten(){
   <p class="note">Abwesenheit: K = krank, k.o.A. = krank ohne Attest, U = Urlaub, U/2 = halber Urlaubstag, RU = Resturlaub aus dem Vorjahr, RU/2 = halber Resturlaubstag, F = Feiertag. Feiertage werden automatisch eingetragen (Bundesland im Zahnrad). Ein Tag mit Beginn, aber ohne Ende zählt erst zur Gleitzeit, wenn das Ende eingetragen ist. Pause: bis 6 Std. keine, über 6 Std. 30 Min., über 9 Std. 45 Min., jeweils plus eingetragener Zusatzpause. Die Schicht wechselt wochenweise; Freitage zählen nur in Frühschichtwochen. Einträge erscheinen automatisch im Kalender.</p>`;
   $$('[data-y]').forEach(b=>b.onclick=()=>{view.year=b.dataset.y;view.month=null;pZeiten()});
   $('#addy').onclick=()=>{const n=prompt('Welches Jahr hinzufügen?',String(Number(years[years.length-1])+1));if(!n)return;if(!/^20\d\d$/.test(n.trim()))return alert('Bitte eine Jahreszahl wie 2027 eingeben.');ensureYear(n.trim());save();view.year=n.trim();view.month=0;pZeiten()};
-  $$('[data-ys]').forEach(i=>i.onchange=()=>{ys[i.dataset.ys]=Number(i.value)||0;save();refreshZ()});
-  if($('#carry'))$('#carry').onclick=()=>{const pc=computeYear(data,String(y-1));ys.startGleitzeit=Math.round(pc.end*100)/100;ys.restVorjahr=Math.max(0,pc.rest);save();pZeiten()};
+  const AF={startGleitzeit:'gzAuto',restVorjahr:'ruAuto'};
+  $$('[data-ys]').forEach(i=>i.onchange=()=>{const k=i.dataset.ys;ys[k]=Number(i.value)||0;if(AF[k]&&hasPrev){ys[AF[k]]=false;save();return pZeiten()}save();refreshZ()});
+  if($('#carry'))$('#carry').onclick=()=>{ys.gzAuto=true;ys.ruAuto=true;save();pZeiten()};
   $('#pdf').onclick=()=>monthPdf(view.year,view.month);
   $$('[data-m]').forEach(b=>b.onclick=()=>{view.month=Number(b.dataset.m);$$('[data-m]').forEach(x=>x.classList.toggle('on',x===b));drawMonth()});
   drawMonth();
@@ -883,7 +978,7 @@ function refreshZ(){
   $('#zstats').innerHTML=`
     <div class="card stat"><div class="l">Gleitzeit gesamt</div><div class="v ${cls(c.end)}">${sg(c.end)}</div><div class="s">Stunden, inkl. Korrekturen</div></div>
     <div class="card stat"><div class="l">Verbleibende Urlaubstage</div><div class="v">${dnum(c.rest)}</div><div class="s">${dnum(c.tot.u)} von ${dnum(data.years[y].urlaub)} genommen/geplant</div></div>
-    <div class="card stat"><div class="l">Resturlaub aus ${y-1}</div><div class="v ${c.restVJ<0?'neg':''}">${dnum(c.restVJ)}</div><div class="s">${Number(data.years[y].restVorjahr)?`von ${dnum(data.years[y].restVorjahr)} Tagen · ${dnum(c.tot.ru)} verplant`:'keine Tage übertragen'}</div></div>
+    <div class="card stat"><div class="l">Resturlaub aus ${y-1}</div><div class="v ${c.restVJ<0?'neg':''}">${dnum(c.restVJ)}</div><div class="s">${c.start.ru?`von ${dnum(c.start.ru)} Tagen · ${dnum(c.tot.ru)} verplant`:'keine Tage übertragen'}</div></div>
     <div class="card stat"><div class="l">Krankentage</div><div class="v">${dnum(c.tot.k+c.tot.koa)}</div><div class="s">${dnum(c.tot.k)} mit Attest · ${dnum(c.tot.koa)} ohne (k.o.A.)</div></div>`;
 }
 
@@ -923,7 +1018,7 @@ function pKalender(){
     }
     body=`<div class="grid g4" style="margin-bottom:20px">
       <div class="card stat"><div class="l">Urlaub ${y} übrig</div><div class="v ${c.rest<0?'neg':''}">${dnum(c.rest)}</div><div class="s">von ${dnum(ys.urlaub)} Tagen · ${dnum(c.tot.u)} verplant</div></div>
-      <div class="card stat"><div class="l">Resturlaub aus ${y-1}</div><div class="v ${c.restVJ<0?'neg':''}">${dnum(c.restVJ)}</div><div class="s">${Number(ys.restVorjahr)?`von ${dnum(ys.restVorjahr)} · ${dnum(c.tot.ru)} verplant`:'keine Tage übertragen'}</div></div>
+      <div class="card stat"><div class="l">Resturlaub aus ${y-1}</div><div class="v ${c.restVJ<0?'neg':''}">${dnum(c.restVJ)}</div><div class="s">${c.start.ru?`von ${dnum(c.start.ru)} · ${dnum(c.tot.ru)} verplant`:'keine Tage übertragen'}</div></div>
       <div class="card stat"><div class="l">Krankentage</div><div class="v">${dnum(c.tot.k+c.tot.koa)}</div><div class="s">${dnum(c.tot.k)} mit Attest · ${dnum(c.tot.koa)} ohne</div></div>
       <div class="card stat"><div class="l">Feiertage</div><div class="v">${Object.keys(holidays(y,data.settings.land)).length}</div><div class="s">${LAENDER[data.settings.land]||'keine automatisch'}</div></div></div>
       <div class="ycal">${months}</div>`;
@@ -976,13 +1071,17 @@ function dayDialog(d,msg,keepTo){
   };
   $$('#dlgc [data-a]').forEach(b=>b.onclick=()=>{
     const to=$('#dto').value, v=b.dataset.a;
-    if(to&&to>d)return range(v,to);
+    const cur=(data.days[d]||{}).a;
+    if(to&&to>d){if(v==='')return withUndo('Abwesenheit entfernt',()=>range(v,to),()=>dayDialog(d,'',to));return range(v,to)}
+    if(v===''&&cur){withUndo(ABSN[cur]+' am '+dShort(d)+' entfernt',()=>setDay(d,{a:v}),()=>dayDialog(d));render();return dayDialog(d)}
     setDay(d,{a:v}); render(); dayDialog(d);
   });
   $('#dto').onchange=()=>{const to=$('#dto').value, cur=(data.days[d]||{}).a; if(to&&to>d&&cur)range(cur,to)};
-  $$('#dlgc [data-del]').forEach(b=>b.onclick=()=>{data.events=data.events.filter(e=>e.id!==b.dataset.del);save();render();dayDialog(d)});
+  $$('#dlgc [data-del]').forEach(b=>b.onclick=()=>{const x=data.events.find(e=>e.id===b.dataset.del);
+    withUndo((x&&x.rep?'Serie „':'Termin „')+(x?x.title:'')+'“ gelöscht',()=>{data.events=data.events.filter(e=>e.id!==b.dataset.del);save()},()=>dayDialog(d));render();dayDialog(d)});
   $('#er').onchange=()=>{$('#eul').hidden=!$('#er').value};
-  $$('#dlgc [data-del1]').forEach(b=>b.onclick=()=>{const e=data.events.find(e=>e.id===b.dataset.del1);(e.ex=e.ex||[]).push(d);save();render();dayDialog(d)});
+  $$('#dlgc [data-del1]').forEach(b=>b.onclick=()=>{const e=data.events.find(e=>e.id===b.dataset.del1);
+    withUndo('„'+e.title+'“ am '+dShort(d)+' gelöscht',()=>{(e.ex=e.ex||[]).push(d);save()},()=>dayDialog(d));render();dayDialog(d)});
   let editId=null;
   $$('#dlgc [data-ed]').forEach(b=>b.onclick=()=>{const e=data.events.find(e=>e.id===b.dataset.ed); editId=e.id;
     $('#et').value=e.title;$('#eh').value=e.time||'';$('#ee').value=e.end||'';$('#er').value=e.rep||'';$('#eu').value=e.until||'';$('#eul').hidden=!e.rep;
@@ -998,9 +1097,28 @@ function dayDialog(d,msg,keepTo){
   $('#dok').onclick=closeDlg;
   $('#toz').onclick=()=>{view.year=d.slice(0,4);view.month=Number(d.slice(5,7))-1;ensureYear(view.year);closeDlg()};
 }
+/* ---------- Hinweis-Leiste mit „Rückgängig“ ---------- */
+function toast(msg,undo){
+  let el=$('#toast'); if(!el){el=document.createElement('div');el.id='toast';el.setAttribute('role','status');el.setAttribute('aria-live','polite')}
+  ($('#dlg').open?$('#dlg'):document.body).appendChild(el);
+  el.innerHTML='<span>'+esc(msg)+'</span>'+(undo?'<button type="button">Rückgängig</button>':'');
+  if(undo)el.querySelector('button').onclick=()=>{hideToast();undo()};
+  requestAnimationFrame(()=>el.classList.add('on'));
+  clearTimeout(toastT); toastT=setTimeout(hideToast,undo?8000:4000);
+}
+function hideToast(){clearTimeout(toastT);undoAt=null;const el=$('#toast');if(el)el.classList.remove('on')}
+// fn löscht etwas und ruft save() auf; „Rückgängig“ stellt den Stand davor wieder her (bis zur nächsten Änderung).
+function withUndo(msg,fn,after){
+  const snap=JSON.stringify(data); fn();
+  toast(msg,()=>{const now=Date.now(), old=normalize(JSON.parse(snap));
+    for(const d of new Set([...Object.keys(old.days),...Object.keys(data.days)]))if(canon(old.days[d])!==canon(data.days[d]))old.mt[d]=now;
+    data=old; save(); render(); if(after&&$('#dlg').open)after()});
+  undoAt=saveN;
+}
 function openDlg(html){const g=$('#dlg');$('#dlgc').innerHTML=html;if(!g.open)g.showModal()}
 function closeDlg(){$('#dlg').close()}
 $('#dlg').addEventListener('click',e=>{if(e.target===$('#dlg'))closeDlg()});
+$('#dlg').addEventListener('close',()=>{const el=$('#toast');if(el&&el.parentNode===$('#dlg'))document.body.appendChild(el)});
 
 /* ---------- Monatsbericht als PDF (ohne externe Bibliothek) ---------- */
 function pdfDoc(){
@@ -1106,12 +1224,12 @@ function pAufgaben(){
     $('#tds').textContent='Erledigt ('+done.length+')'; $('#tdone').innerHTML=done.map(row).join('');
     $('#tclr').hidden=!done.length;
     $$('[data-t]').forEach(c=>c.onchange=()=>{const x=data.todos.find(x=>x.id===c.dataset.t);x.done=c.checked;if(x.done)x.doneAt=today();else delete x.doneAt;save();draw()});
-    $$('[data-x]').forEach(b=>b.onclick=()=>{data.todos=data.todos.filter(x=>x.id!==b.dataset.x);save();draw()});
+    $$('[data-x]').forEach(b=>b.onclick=()=>{const t=data.todos.find(x=>x.id===b.dataset.x);withUndo('Aufgabe „'+(t?t.title:'')+'“ gelöscht',()=>{data.todos=data.todos.filter(x=>x.id!==b.dataset.x);save()});draw()});
     $$('[data-pr]').forEach(sel=>sel.onchange=()=>{const x=data.todos.find(x=>x.id===sel.dataset.pr);if(sel.value)x.prio=sel.value;else delete x.prio;save();draw()});
   };
   const add=()=>{const v=$('#tt').value.trim();if(!v)return $('#tt').focus();data.todos.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),title:v,due:$('#td').value||'',done:false,...($('#tpr').value?{prio:$('#tpr').value}:{})});$('#tt').value='';$('#tpr').value='';save();draw();$('#tt').focus()};
   $('#ta').onclick=add; $('#tt').onkeydown=e=>{if(e.key==='Enter')add()};
-  $('#tclr').onclick=()=>{if(confirm('Alle erledigten Aufgaben löschen?')){data.todos=data.todos.filter(x=>!x.done);save();draw()}};
+  $('#tclr').onclick=()=>{const n=data.todos.filter(x=>x.done).length;if(!n)return;withUndo(n+(n===1?' erledigte Aufgabe':' erledigte Aufgaben')+' gelöscht',()=>{data.todos=data.todos.filter(x=>!x.done);save()});draw()};
   draw();
 }
 
