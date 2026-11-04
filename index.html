@@ -546,7 +546,8 @@ function save(){
 }
 
 /* ---------- GitHub-Synchronisation ---------- */
-const configured=()=>!!(cfg.owner&&cfg.repo&&cfg.token), syncOn=()=>configured()&&isUser();
+const configured=()=>!!(cfg.owner&&cfg.repo&&cfg.token), syncOn=()=>configured()&&isUser()&&!maint;
+let maint=null;   // Wartungsmodus (steht in users.json als "wartung"); gilt für alle außer dem Admin
 function status(c,t){const s=$('#sync');s.className=c;$('span',s).textContent=t;s.title=t}
 const b64e=str=>{const b=new TextEncoder().encode(str);let s='';for(let i=0;i<b.length;i+=8192)s+=String.fromCharCode.apply(null,b.subarray(i,i+8192));return btoa(s)};
 const b64d=b=>new TextDecoder().decode(Uint8Array.from(atob(b.replace(/\s/g,'')),c=>c.charCodeAt(0)));
@@ -632,7 +633,32 @@ async function push(tries=0){
   pushing=false;
   if(again){again=false;push()}
 }
+/* ---------- Wartungsmodus ---------- */
+const MAINT_TXT='Die Seite wird gerade aktualisiert. Bitte versuche es in einigen Minuten noch einmal.';
+// Liest den Wartungsstatus aus users.json. Gibt true zurück, wenn er sich geändert hat. Fehler (offline usw.) ändern nichts.
+async function checkMaint(){
+  if(!configured()||!isUser())return false;
+  try{const u=await loadUsers(), w=u.db.wartung&&u.db.wartung.on?u.db.wartung:null, ch=!!w!==!!maint; maint=w; return ch}catch(e){return false}
+}
+async function maintRecheck(){
+  const was=!!maint; await checkMaint();
+  if(!maint&&was){render(); if(await pull())render(); toast('Die Wartung ist beendet – alles wieder normal.')}
+  else if(maint&&!was){if($('#dlg').open)closeDlg(); render()}
+  else if(maint&&$('#mtxt'))$('#mtxt').textContent='Zuletzt geprüft: '+nowHM()+' Uhr';
+}
+function pWartung(){
+  $$('nav a.tab').forEach(a=>a.classList.remove('on'));
+  const seit=maint.seit?new Date(maint.seit):null;
+  $('#app').innerHTML=`<section class="hero"><p style="font-size:56px;margin:0">🛠️</p><h1>Wartung.</h1>
+    <p class="sub">${esc(maint.text||MAINT_TXT)}</p>
+    <p class="note" style="margin-top:18px">${seit?'Seit '+dShort(seit.getFullYear()+'-'+String(seit.getMonth()+1).padStart(2,'0')+'-'+String(seit.getDate()).padStart(2,'0'))+' um '+String(seit.getHours()).padStart(2,'0')+':'+String(seit.getMinutes()).padStart(2,'0')+' Uhr. ':''}Deine Einträge auf diesem Gerät bleiben erhalten und werden nach der Wartung automatisch gespeichert.</p>
+    <p style="margin-top:24px"><button class="btn" id="mre">Erneut prüfen</button></p><p class="small muted" id="mtxt"></p></section>`;
+  $('#mre').onclick=maintRecheck;
+  status('busy','Wartung');
+}
+setInterval(()=>{if(document.visibilityState==='visible'&&isUser()&&configured())maintRecheck()},180000);
 document.addEventListener('visibilitychange',async()=>{
+  if(document.visibilityState==='visible'&&isUser()&&configured())await maintRecheck();
   if(document.visibilityState==='visible'&&syncOn()&&ls.get(LSD)!=='1'&&!$('#dlg').open&&!/INPUT|SELECT/.test(document.activeElement.tagName)){if(await pull())render()}
 });
 window.addEventListener('online',()=>{if(ls.get(LSD)==='1')push()});
@@ -698,6 +724,7 @@ function showLogin(reg){
     try{
       const u=await loadUsers();
       if(u.missing&&(reg||id.toLowerCase()!=='admin'))throw new Error(u.missing);
+      if(u.db.wartung&&u.db.wartung.on&&(reg||id.toLowerCase()!=='admin'))throw new Error('🛠️ Wartung: '+(u.db.wartung.text||MAINT_TXT));
       if(reg){
         if(!ID_RE.test(id)||id.toLowerCase()==='admin')throw new Error('Die Personalnummer darf nur Buchstaben und Ziffern enthalten.');
         if(pw.length<4)throw new Error('Das Passwort braucht mindestens 4 Zeichen.');
@@ -721,7 +748,9 @@ function showLogin(reg){
     if($('#lo'))$('#lo').disabled=false;
   };
   $('#lo').onclick=go; $$('#dlgc input').forEach(i=>i.onkeydown=e=>{if(e.key==='Enter')go()}); $('#lu').focus();
-  loadUsers().then(u=>{if(u.missing&&$('#lm')&&!$('#lm').textContent)$('#lm').innerHTML='<b>⚠️ '+esc(u.missing)+'</b>'}).catch(()=>{});
+  loadUsers().then(u=>{if(!$('#lm')||$('#lm').textContent)return;
+    if(u.missing)$('#lm').innerHTML='<b>⚠️ '+esc(u.missing)+'</b>';
+    else if(u.db.wartung&&u.db.wartung.on)$('#lm').innerHTML='<b>🛠️ Wartung:</b> '+esc(u.db.wartung.text||MAINT_TXT)+'<br><span class="muted">Anmelden ist gerade nur für den Admin möglich.</span>'}).catch(()=>{});
 }
 // Gespeicherte Zugangsdaten auf diesem Gerät verwerfen und neu freischalten (Team-Passwort bzw. neues Token)
 // Angemeldet, aber GitHub lehnt das Token ab (z. B. altes Token gelöscht): Hinweis mit Ausweg
@@ -740,7 +769,7 @@ function resetAccess(){
 async function gate(){
   document.body.classList.toggle('admin',user==='admin'); document.body.classList.toggle('out',!user);
   if(configured()&&/^#k=/.test(location.hash))history.replaceState(null,'',location.pathname+'#/start');
-  if(configured()&&user){render(); if(isUser()&&await pull())render(); else if(!isUser())status('ok','Verwaltung'); return}
+  if(configured()&&user){render(); if(isUser()){await checkMaint(); if(maint)return render(); if(await pull())render()} else status('ok','Verwaltung'); return}
   if(user){user=null;ls.del(LSU);document.body.classList.add('out');document.body.classList.remove('admin')}
   render(); status('','Nicht angemeldet');
   if(configured())return showLogin();
@@ -755,6 +784,12 @@ async function pAdmin(){
   $('#asub').textContent=ids.length+(ids.length===1?' Benutzer':' Benutzer')+' registriert';
   $('#abody').innerHTML=`
     ${u.missing?`<div class="card" style="background:var(--k-bg);color:var(--k)"><b>⚠️ ${esc(u.missing)}</b><br><br>Registrieren und Anmelden sind gesperrt, bis die Datei gefunden wird. Hier wird nichts gespeichert.<p style="margin:12px 0 0"><button class="btn sec" id="aretry">Erneut prüfen</button></p></div>`:''}
+    ${u.missing?'':`<div class="card" ${u.db.wartung&&u.db.wartung.on?'style="box-shadow:inset 0 0 0 2px var(--koa)"':''}><h3>🛠️ Wartungsmodus</h3>
+      <label style="display:flex;gap:10px;align-items:flex-start;font-size:16px"><input type="checkbox" id="wm" ${u.db.wartung&&u.db.wartung.on?'checked':''} style="width:24px;height:24px;min-height:0;flex:none;margin-top:0"> <span><b>Wartungsmodus aktiv</b><br><span class="note">Nur du als Admin kannst dich anmelden. Alle anderen sehen eine Meldung statt der Seite.</span></span></label>
+      <label class="f" style="margin-top:12px">Meldung an alle<input id="wt" maxlength="200" value="${esc((u.db.wartung&&u.db.wartung.text)||'')}" placeholder="${esc(MAINT_TXT)}"></label>
+      ${u.db.wartung&&u.db.wartung.on?`<p class="small" style="margin:10px 0 0;color:var(--koa)"><b>Ist eingeschaltet</b>${u.db.wartung.seit?' seit '+new Date(u.db.wartung.seit).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+' Uhr':''}. Denk daran, den Haken nach der Arbeit wieder zu entfernen.</p>`:''}
+      <p class="note" style="margin:10px 0 0">Wer gerade angemeldet ist, sieht die Meldung spätestens nach 3 Minuten oder beim nächsten Öffnen der Seite. Einträge, die noch nicht gespeichert waren, bleiben auf dem Gerät und werden nach der Wartung automatisch übertragen.</p>
+      <p class="small" id="wmm" style="margin:6px 0 0"></p></div>`}
     ${u.db.admin||u.missing?'':'<div class="card" style="background:var(--koa-bg);color:var(--koa)"><b>Das Admin-Passwort ist noch „admin“.</b> Bitte ändere es jetzt – sonst kann jede Person mit Zugang zur Seite die Verwaltung öffnen.</div>'}
     <div class="card"><h3>Benutzer</h3>
       <ul class="list">${ids.map(id=>`<li><span class="x"><b>${esc(id)}</b><br><span class="note">registriert am ${u.db.users[id].created?dShort(u.db.users[id].created)+u.db.users[id].created.slice(0,4):'–'}</span></span>
@@ -773,6 +808,13 @@ async function pAdmin(){
       <button class="btn sec" id="ab">Ändern</button></div></div>
     <p class="small" id="am" style="margin:0 4px"></p>`;
   if($('#aretry'))$('#aretry').onclick=()=>pAdmin();
+  const setW=async on=>{const m=$('#wmm');m.textContent='Speichert …';m.className='small muted';
+    try{const v=$('#wt').value.trim(); const f=await loadUsers(); if(f.missing)throw new Error(f.missing);
+      if(on)f.db.wartung={on:true,text:v,seit:(f.db.wartung&&f.db.wartung.on&&f.db.wartung.seit)||new Date().toISOString()}; else delete f.db.wartung;
+      await saveUsers(f); await pAdmin(); toast(on?'Wartungsmodus ist eingeschaltet.':'Wartungsmodus ist ausgeschaltet – alle können sich wieder anmelden.')}
+    catch(e){m.textContent=netMsg(e);m.className='small neg';$('#wm').checked=!on}};
+  if($('#wm')){$('#wm').onchange=()=>setW($('#wm').checked); $('#wt').onchange=()=>{if($('#wm').checked)setW(true)}}
+  status(u.db.wartung&&u.db.wartung.on?'busy':'ok',u.db.wartung&&u.db.wartung.on?'Wartung aktiv':'Verwaltung');
   const getFile=async p=>{const r=await api('GET',null,p);if(r.status===404)return null;if(!r.ok)throw new Error(ghErr(r));return b64d((await r.json()).content)};
   $$('[data-bk]').forEach(b=>b.onclick=async()=>{const id=b.dataset.bk;b.disabled=true;
     try{const t=await getFile('daten/'+id+'.json');if(t==null)throw new Error('Für '+id+' gibt es noch keine Daten.');download(new Blob([t],{type:'application/json'}),id+'.json');$('#am').textContent='Sicherung von '+id+' heruntergeladen (gehört in den Ordner daten/).';$('#am').className='small pos'}
@@ -819,6 +861,7 @@ function render(){
   P45=data.settings.p45||'ist';
   if(!user){$('#app').innerHTML='<section class="hero"><h1>Arbeitszeit.</h1><p class="sub">Bitte melde dich an, um deine Zeiten zu sehen.</p><p style="margin-top:24px"><button class="btn" id="gl">Anmelden</button></p></section>';$('#gl').onclick=gate;return}
   if(user==='admin'){$$('nav a.tab').forEach(a=>a.classList.toggle('on',a.classList.contains('adm')));return pAdmin()}
+  if(maint)return pWartung();
   const r=(location.hash.replace(/^#\//,'')||'start').split('?')[0];
   $$('nav a.tab').forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#/'+r));
   ({start:pStart,rechner:pRechner,zeiten:pZeiten,kalender:pKalender,aufgaben:pAufgaben}[r]||pStart)();
@@ -1501,6 +1544,7 @@ function pAufgaben(){
 
 /* ---------- Einstellungen ---------- */
 function openSettings(){
+  if(maint&&isUser())return toast('Während der Wartung sind die Einstellungen gesperrt.');
   if(!user&&configured())return showLogin();          // ohne Anmeldung keine Einstellungen
   const s=data.settings, gh=user==='admin'||!user;
   openDlg(`<h3>${user?'Einstellungen':'Einrichtung'}</h3>
