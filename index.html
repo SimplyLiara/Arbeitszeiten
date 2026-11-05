@@ -210,7 +210,14 @@ table.days th.l,table.days td.l{text-align:left}
 
 /* Startseite */
 .hello{padding:40px 4px 22px}.hello .eyebrow{font-size:15px}.hello h1{font-size:clamp(34px,6vw,52px);text-align:left}
-.home{display:grid;grid-template-columns:1.25fr 1fr;gap:16px;align-items:start}
+.home{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;align-items:start}
+.home>.ovcard{grid-column:1/-1}
+.hrow{display:grid;gap:16px;align-items:start}
+.hrow.h1{grid-template-columns:1.25fr 1fr;align-items:stretch} .hrow.h1>.card,.hrow.h1>.kpis>.card{height:100%} .hrow.h3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.home .ovcard{margin:0}
+table.ov tr[data-om]{cursor:pointer} table.ov tr[data-om]:hover td{background:var(--soft)}
+table.ov tr.cur td{background:color-mix(in srgb,var(--blue) 10%,transparent);font-weight:600}
+table.ov tr.cur td:first-child{box-shadow:inset 3px 0 0 var(--blue)}
 .hcol{display:flex;flex-direction:column;gap:16px}
 .hcol .card,.kpis .card{margin:0}
 .lab{font-size:13px;color:var(--muted);margin-bottom:8px}
@@ -248,8 +255,8 @@ table.days th.l,table.days td.l{text-align:left}
 .mob{display:none}
 @media (max-width:900px){
   .home{display:flex;flex-direction:column;gap:14px;align-items:stretch}
-  .hcol{display:contents}
-  .ho1{order:1}.ho2{order:2}.ho3{order:3}.ho4{order:4}
+  .hcol,.hrow{display:contents}
+  .ho1{order:1}.ho2{order:2}.ho3{order:3}.ho7{order:4}.ho4{order:5}
   .dsk{display:none!important}.mob{display:revert}
   .week.mob{display:grid}
   .htd{gap:18px}.ring{width:118px;height:118px}.ring .c b{font-size:24px}
@@ -927,20 +934,22 @@ function pStart(){
     <div class="hcol">
       <div class="card ho1" id="htoday"></div>
       <div class="card ho5 dsk"><div class="lab">Gleitzeit je Woche (letzte 8 Wochen)</div><div class="wbars">${bars}</div></div>
-      <div class="card ho4"><div class="lab">Demnächst</div><ul class="tl mob">${nextMob.map(li).join('')||none}</ul><ul class="tl dsk">${nextDsk.map(li).join('')||none}</ul></div>
+      <div class="card ho2"><div class="lab"><span class="mob">Diese Woche</span><span class="dsk">${MON[Number(t.slice(5,7))-1]} ${y}</span></div>
+        <div class="week mob">${strip}</div><div class="mini dsk">${month}</div>
+        <div class="lab" style="margin:12px 0 0">Woche: ${hm(wist)} von ${hm(wsoll)} Std. · nächste Woche ${SHN[shiftOf(addDays(t,7),data.settings)]}</div></div>
     </div>
     <div class="hcol">
       <div class="kpis ho3">
         <div class="card k"><div class="lab">Gleitzeit</div><div class="v ${cls(c.end)}">${sg(c.end)}</div><div class="${cls(c.end)||'muted'}">${spark}</div><div class="s">${diff==null?'Stunden':(diff>=0?'+':'−')+f2(Math.abs(diff))+' seit letzter Woche'}</div></div>
         <div class="card k"><div class="lab">Urlaub ${y}</div><div class="v ${c.rest<0?'neg':''}">${dnum(c.rest)} <small>übrig</small></div><div class="ubar"><span style="width:${Math.min(100,(c.tot.u/(Number(ys.urlaub)||1))*100)}%"></span></div><div class="s">${dnum(c.tot.u)} von ${dnum(ys.urlaub)} verplant${c.start.ru?' · Resturlaub '+dnum(c.restVJ):''}</div></div>
       </div>
-      <div class="card ho2"><div class="lab"><span class="mob">Diese Woche</span><span class="dsk">${MON[Number(t.slice(5,7))-1]} ${y}</span></div>
-        <div class="week mob">${strip}</div><div class="mini dsk">${month}</div>
-        <div class="lab" style="margin:12px 0 0">Woche: ${hm(wist)} von ${hm(wsoll)} Std. · nächste Woche ${SHN[shiftOf(addDays(t,7),data.settings)]}</div></div>
       <div class="card ho6 dsk"><div class="lab">Offene Aufgaben · ${todos.length}</div><ul class="tl">${todos.slice(0,5).map(x=>li({ico:tico(x),tt:esc(x.title),w:tw(x),late:x.due&&x.due<=addDays(t,1)})).join('')||'<li class="muted small">Keine offenen Aufgaben.</li>'}</ul>${todos.length>5?'<a class="small" href="#/aufgaben">Alle Aufgaben</a>':''}</div>
+      <div class="card ho4"><div class="lab">Demnächst</div><ul class="tl mob">${nextMob.map(li).join('')||none}</ul><ul class="tl dsk">${nextDsk.map(li).join('')||none}</ul></div>
     </div>
+    <div class="card ho7 ovcard"><div class="lab" style="display:flex;justify-content:space-between;gap:10px"><span>Monatsübersicht ${y}</span><a href="#/zeiten">Zur Zeiterfassung</a></div><table class="ov" id="hov">${ovTable(c,Number(t.slice(5,7))-1)}</table></div>
   </div>`;
   $$('.wd,.md').forEach(b=>b.onclick=()=>dayDialog(b.dataset.d));
+  $$('#hov [data-om]').forEach(tr=>tr.onclick=()=>{view.year=y;view.month=Number(tr.dataset.om);location.hash='#/zeiten'});
   $$('[data-h]').forEach(b=>b.onclick=()=>hints[b.dataset.h].act());
   $$('[data-hx]').forEach(b=>b.onclick=()=>{hints[b.dataset.hx].close();pStart()});
   homeToday();
@@ -1073,7 +1082,6 @@ function pZeiten(){
     ${years.map(v=>`<button class="pill ${v===y?'on':''}" data-y="${v}">${v}</button>`).join('')}
     <button class="pill" id="addy">+ Jahr</button>
   </div>
-  <div class="grid g4" id="zstats"></div>
   <div class="card" style="margin-top:16px">
     <details><summary>Einstellungen ${y}</summary>
       <div class="row" style="margin-top:14px">
@@ -1086,9 +1094,7 @@ function pZeiten(){
       ${hasPrev?(st0.autoG&&st0.autoR?'<p class="note" style="margin:12px 0 0">Anfangs-Gleitzeit und Resturlaub werden laufend aus '+(y-1)+' übernommen. Änderst du dort noch etwas, passt sich '+y+' automatisch an. Trägst du hier selbst einen Wert ein, bleibt dieser fest.</p>':'<p style="margin:12px 0 0"><button class="btn sec" id="carry">Wieder automatisch aus '+(y-1)+' übernehmen</button></p>'):''}
     </details>
   </div>
-  <div class="card ovcard"><h3>Monatsübersicht</h3><table id="ov" class="ov"></table>
-    <div class="row" style="margin-top:14px;gap:8px"><button class="btn sec" id="ypdf">Jahresbericht ${y} (PDF)</button><button class="btn sec" id="ycsv">Jahr ${y} als Excel-Tabelle (CSV)</button></div></div>
-  <div class="calhead" style="margin-top:48px"><h2 id="mt"></h2><button class="btn sec" id="pdf">Monatsbericht (PDF)</button></div>
+  <div class="calhead" style="margin-top:40px"><h2 id="mt"></h2><button class="btn sec" id="pdf">Monatsbericht (PDF)</button><button class="btn sec" id="ypdf" title="Übersicht und alle Monate ${y}">Jahresbericht (PDF)</button><button class="btn sec" id="ycsv" title="Alle Tage ${y} als Tabelle für Excel">Excel (CSV)</button></div>
   <div class="pills nowrap" style="margin-bottom:14px">${MON.map((m,k)=>`<button class="pill ${k===view.month?'on':''}" data-m="${k}">${m.slice(0,3)}</button>`).join('')}</div>
   <div class="card dlist" id="dt"></div>
   <p class="note">Abwesenheit: K = krank, k.o.A. = krank ohne Attest, U = Urlaub, U/2 = halber Urlaubstag, RU = Resturlaub aus dem Vorjahr, RU/2 = halber Resturlaubstag, F = Feiertag. Feiertage werden automatisch eingetragen (Bundesland im Zahnrad). Am 24.12. und 31.12. wird an Arbeitstagen automatisch ein halber Urlaubstag eingetragen, der ganze Tag ist frei und die Gleitzeit bleibt gleich (abschaltbar im Zahnrad). Ein Tag mit Beginn, aber ohne Ende zählt erst zur Gleitzeit, wenn das Ende eingetragen ist. Pause: bis 6 Std. keine, über 6 Std. 30 Min., über 9 Std. 45 Min., jeweils plus eingetragener Zusatzpause. Die Schicht wechselt wochenweise; Freitage zählen nur in Frühschichtwochen. Einträge erscheinen automatisch im Kalender.</p>`;
@@ -1149,14 +1155,18 @@ function refreshZ(){
   $('[data-s=ist]').textContent=f2(M.ist);$('[data-s=soll]').textContent=f2(M.soll);
   $('[data-s=gz]').textContent=sg(M.gz);$('[data-s=gz]').className=cls(M.gz);
   $('[data-s=cum]').textContent=sg(last.cum);$('[data-s=cum]').className=cls(last.cum);
-  const line=(n,M,c2)=>`<tr class="${c2||''}"><td>${n}</td><td>${f2(M.ist)}</td><td>${f2(M.soll)}</td><td class="${cls(M.gz)}">${sg(M.gz)}</td><td>${dnum(M.u)}</td><td class="xs">${dnum(M.ru)}</td><td>${dnum(M.k)}</td><td class="xs">${dnum(M.koa)}</td></tr>`;
-  $('#ov').innerHTML='<thead><tr><th>Monat</th><th>Ist<span class="lgx">-Stunden</span></th><th>Soll<span class="lgx">-Stunden</span></th><th>Gleitzeit<span class="lgx"> Monat</span></th><th>Urlaub<span class="lgx">stage</span></th><th class="xs">Resturlaub</th><th>Krank<span class="lgx">entage</span></th><th class="xs">k.o.A.-Tage</th></tr></thead><tbody>'+
-    c.months.map((M,k)=>line(`<span class="lgx">${MON[k]}</span><span class="smx">${MON[k].slice(0,3)}</span>`,M)).join('')+line('Gesamt',c.tot,'sum')+'</tbody>';
-  $('#zstats').innerHTML=`
-    <div class="card stat"><div class="l">Gleitzeit gesamt</div><div class="v ${cls(c.end)}">${sg(c.end)}</div><div class="s">Stunden, inkl. Korrekturen</div></div>
-    <div class="card stat"><div class="l">Verbleibende Urlaubstage</div><div class="v">${dnum(c.rest)}</div><div class="s">${dnum(c.tot.u)} von ${dnum(data.years[y].urlaub)} genommen/geplant</div></div>
+}
+/* ---------- Jahreskarten & Monatsübersicht (gemeinsam genutzt) ---------- */
+function yearCards(c,y){
+  return `<div class="card stat"><div class="l">Gleitzeit gesamt</div><div class="v ${cls(c.end)}">${sg(c.end)}</div><div class="s">Stunden, inkl. Korrekturen</div></div>
+    <div class="card stat"><div class="l">Verbleibende Urlaubstage</div><div class="v ${c.rest<0?'neg':''}">${dnum(c.rest)}</div><div class="s">${dnum(c.tot.u)} von ${dnum(data.years[y].urlaub)} genommen/geplant</div></div>
     <div class="card stat"><div class="l">Resturlaub aus ${y-1}</div><div class="v ${c.restVJ<0?'neg':''}">${dnum(c.restVJ)}</div><div class="s">${c.start.ru?`von ${dnum(c.start.ru)} Tagen · ${dnum(c.tot.ru)} verplant`:'keine Tage übertragen'}</div></div>
     <div class="card stat"><div class="l">Krankentage</div><div class="v">${dnum(c.tot.k+c.tot.koa)}</div><div class="s">${dnum(c.tot.k)} mit Attest · ${dnum(c.tot.koa)} ohne (k.o.A.)</div></div>`;
+}
+function ovTable(c,cur){
+  const line=(n,M,c2,k)=>`<tr class="${c2||''}" ${k!=null?`data-om="${k}" title="${MON[k]} in der Zeiterfassung öffnen"`:''}><td>${n}</td><td>${f2(M.ist)}</td><td>${f2(M.soll)}</td><td class="${cls(M.gz)}">${sg(M.gz)}</td><td>${dnum(M.u)}</td><td class="xs">${dnum(M.ru)}</td><td>${dnum(M.k)}</td><td class="xs">${dnum(M.koa)}</td></tr>`;
+  return '<thead><tr><th>Monat</th><th>Ist<span class="lgx">-Stunden</span></th><th>Soll<span class="lgx">-Stunden</span></th><th>Gleitzeit<span class="lgx"> Monat</span></th><th>Urlaub<span class="lgx">stage</span></th><th class="xs">Resturlaub</th><th>Krank<span class="lgx">entage</span></th><th class="xs">k.o.A.-Tage</th></tr></thead><tbody>'+
+    c.months.map((M,k)=>line(`<span class="lgx">${MON[k]}</span><span class="smx">${MON[k].slice(0,3)}</span>`,M,k===cur?'cur':'',k)).join('')+line('Gesamt',c.tot,'sum')+'</tbody>';
 }
 /* ---------- Statistik ---------- */
 function pStatistik(){
@@ -1165,6 +1175,7 @@ function pStatistik(){
   const y=view.statY;
   $('#app').innerHTML=`<section class="hero"><h1>Statistik.</h1><p class="sub">Auswertung ${y}</p></section>
     ${years.length>1?`<div class="pills" style="justify-content:center;margin-bottom:20px">${years.map(v=>`<button class="pill ${v===y?'on':''}" data-sy="${v}">${v}</button>`).join('')}</div>`:''}
+    <div class="grid g4" style="margin-bottom:16px">${yearCards(computeYear(data,y),y)}</div>
     <div class="card"><div id="zstat"></div></div>`;
   $$('[data-sy]').forEach(b=>b.onclick=()=>{view.statY=b.dataset.sy;pStatistik()});
   drawStats(computeYear(data,y),y);
@@ -1183,7 +1194,7 @@ function drawStats(c,y){
   el.innerHTML=`<div class="stt">
       <div><div class="l">Ø Stunden pro Woche</div><div class="v">${f2(avgW)}</div><div class="s">${ww.length?'Soll im Schnitt '+f2(avgS)+' · '+ww.length+(ww.length===1?' volle Woche':' volle Wochen'):'noch keine volle Woche'}</div></div>
       <div><div class="l">Ø Stunden pro Arbeitstag</div><div class="v">${f2(avgD)}</div><div class="s">${wd2.length} Tage mit Arbeitszeiten</div></div>
-      <div><div class="l">Krankentage</div><div class="v">${dnum(kr)}</div><div class="s">${kp==null?'kein Vorjahr erfasst':(y-1)+': '+dnum(kp)+' Tage'+(kr<kp?' · weniger':kr>kp?' · mehr':' · gleich viele')}</div></div></div>
+      <div><div class="l">Krankentage ${y-1}</div><div class="v">${kp==null?'–':dnum(kp)}</div><div class="s">${kp==null?'kein Vorjahr erfasst':y+': '+dnum(kr)+(kr<kp?' · weniger':kr>kp?' · mehr':' · gleich viele')}</div></div></div>
     <div class="chh">Gleitzeit-Stand im Verlauf (Wochenende)</div><div class="cwrap" id="ch1"></div>
     <div class="chh" style="margin-top:16px">Gleitzeit je Monat</div><div class="cwrap" id="ch2"></div>`;
   const Wd=Math.max(300,$('#ch1').clientWidth||600), H=170, pl=44, pr=8, pt=10, pb=22, iw=Wd-pl-pr, ih=H-pt-pb;
