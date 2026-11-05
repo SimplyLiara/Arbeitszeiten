@@ -68,6 +68,9 @@ body.out #lout{display:none}
 @media (max-width:380px){nav a.tab{padding:6px 2px !important} #theme,#gear{padding:4px 2px !important} #lout{padding:5px 5px !important} nav .in{padding:0 4px !important;gap:0 !important}}
 @media (max-width:440px){nav a.tab{padding:6px 3px !important;font-size:11px !important} #lout{padding:6px 6px !important;font-size:11px !important} nav .in{padding:0 6px !important}}
 nav a.tab.adm{display:none}
+#pvbar{display:flex;align-items:center;justify-content:center;gap:10px 14px;flex-wrap:wrap;padding:7px 16px;background:var(--koa-bg);color:var(--koa);font-size:14px;border-top:1px solid var(--soft);text-align:center}
+#pvbar[hidden]{display:none}
+#pvbar .btn{padding:5px 12px;font-size:13px;background:var(--card);color:var(--text)}
 body.admin nav a.tab{display:none}
 body.admin nav a.tab.adm{display:inline}
 body.out nav a.tab{visibility:hidden}
@@ -360,7 +363,7 @@ footer{text-align:center;font-size:12px;color:var(--muted);padding:0 16px 40px}
   <button id="theme" aria-label="Dunkelmodus umschalten" title="Hell/Dunkel"></button>
   <button id="gear" aria-label="Einstellungen" title="Einstellungen">⚙︎</button>
   <button id="lout" class="tab" aria-label="Abmelden" title="Abmelden"><span class="lg">Abmelden</span><span class="sm"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-4px"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h11"/></svg></span></button>
-</div></nav>
+</div><div id="pvbar" hidden></div></nav>
 <main id="app"></main>
 <footer>Jede Person sieht nur ihre eigenen Daten · gespeichert im privaten GitHub-Repository</footer>
 <dialog id="dlg"><div class="dl" id="dlgc"></div></dialog>
@@ -557,7 +560,8 @@ function save(){
 }
 
 /* ---------- GitHub-Synchronisation ---------- */
-const configured=()=>!!(cfg.owner&&cfg.repo&&cfg.token), syncOn=()=>configured()&&isUser()&&!maint;
+const configured=()=>!!(cfg.owner&&cfg.repo&&cfg.token), syncOn=()=>configured()&&isUser()&&!maint&&!(preview&&preview.demo);
+let preview=null;   // Admin-Vorschau: {id} = echte Daten einer Person, {demo:true} = Testdaten (nichts wird gespeichert)
 let maint=null;   // Wartungsmodus (steht in users.json als "wartung"); gilt für alle außer dem Admin
 function status(c,t){const s=$('#sync');s.className=c;$('span',s).textContent=t;s.title=t}
 const b64e=str=>{const b=new TextEncoder().encode(str);let s='';for(let i=0;i<b.length;i+=8192)s+=String.fromCharCode.apply(null,b.subarray(i,i+8192));return btoa(s)};
@@ -644,11 +648,47 @@ async function push(tries=0){
   pushing=false;
   if(again){again=false;push()}
 }
+/* ---------- Admin-Vorschau ---------- */
+async function startPreview(id){
+  view.year=view.month=view.calY=view.calM=view.statY=view.calW=null;
+  preview=id?{id}:{demo:true}; maint=null; sha=null; ls.del(LSB); ls.set(LSD,'0');
+  user=id||'vorschau'; data=id?normalize(blank()):demoData();
+  document.body.classList.remove('admin');
+  const bar=$('#pvbar'); bar.hidden=false;
+  bar.innerHTML=`<span>👁️ <b>Vorschau</b> · ${id?'Daten von <b>'+esc(id)+'</b> – Änderungen werden gespeichert':'Testdaten – nichts wird gespeichert'}</span><button class="btn" id="pvend">Vorschau beenden</button>`;
+  $('#pvend').onclick=endPreview;
+  location.hash='#/start'; render(); scrollTo(0,0);
+  if(id){if(await pull())render()} else status('','Vorschau');
+}
+async function endPreview(){
+  if(preview&&preview.id&&ls.get(LSD)==='1'){clearTimeout(pushTimer);status('busy','Speichert …');await push()}
+  preview=null; user='admin'; data=normalize(blank()); sha=null; ls.set(LS,JSON.stringify(data)); ls.set(LSD,'0'); ls.del(LSB);
+  view.year=view.month=view.calY=view.calM=view.statY=view.calW=null;
+  $('#pvbar').hidden=true; document.body.classList.add('admin');
+  if($('#dlg').open)closeDlg(); location.hash='#/verwaltung'; render(); scrollTo(0,0);
+}
+// Beispieldaten für die Vorschau: dieses Jahr mit Arbeitszeiten bis gestern, etwas Urlaub, Krankheit, Termine und Aufgaben
+function demoData(){
+  const d=normalize(blank()), t=today(), y=t.slice(0,4); let seed=7; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+  d.settings.name='Vorschau'; d.years={[y]:{startGleitzeit:4.5,urlaub:30,sollMoDo:8.25,sollFr:8}};
+  const hhmm2=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+  for(let x=y+'-01-02';x<t;x=addDays(x,1)){
+    const ys=d.years[y], soll=sollOf(x,ys,d.settings); if(!soll||holidays(y,d.settings.land)[x])continue;
+    const r=rnd(); if(r<.06){d.days[x]={a:'U'};continue} if(r<.08){d.days[x]={a:'K'};continue}
+    const st=(shiftOf(x,d.settings)==='F'?355:805)+Math.round(rnd()*10), len=Math.round(soll*60)+30+Math.round((rnd()-.45)*40);
+    d.days[x]={s:hhmm2(st),e:hhmm2(st+len)}; if(rnd()<.05)d.days[x].p=15;
+  }
+  d.days[t]={s:shiftOf(t,d.settings)==='F'?'05:58':'13:28'};
+  for(let k=0;k<3;k++){const x=addDays(t,10+k);if(sollOf(x,d.years[y],d.settings))d.days[x]={a:'U'}}
+  d.events=[{id:'demo1',date:addDays(t,2),title:'Teambesprechung',time:'09:00',end:'10:00',rep:'w'},{id:'demo2',date:addDays(t,5),title:'Zahnarzt',time:'16:30',end:''}];
+  d.todos=[{id:'demot1',title:'Urlaubsantrag abgeben',due:addDays(t,3),done:false,prio:'2'},{id:'demot2',title:'Schulung anmelden',due:'',done:false}];
+  return d;
+}
 /* ---------- Wartungsmodus ---------- */
 const MAINT_TXT='Die Seite wird gerade aktualisiert. Bitte versuche es in einigen Minuten noch einmal.';
 // Liest den Wartungsstatus aus users.json. Gibt true zurück, wenn er sich geändert hat. Fehler (offline usw.) ändern nichts.
 async function checkMaint(){
-  if(!configured()||!isUser())return false;
+  if(!configured()||!isUser()||preview)return false;
   try{const u=await loadUsers(), w=u.db.wartung&&u.db.wartung.on?u.db.wartung:null, ch=!!w!==!!maint; maint=w; return ch}catch(e){return false}
 }
 async function maintRecheck(){
@@ -800,7 +840,16 @@ async function pAdmin(){
       <label class="f" style="margin-top:12px">Meldung an alle<input id="wt" maxlength="200" value="${esc((u.db.wartung&&u.db.wartung.text)||'')}" placeholder="${esc(MAINT_TXT)}"></label>
       ${u.db.wartung&&u.db.wartung.on?`<p class="small" style="margin:10px 0 0;color:var(--koa)"><b>Ist eingeschaltet</b>${u.db.wartung.seit?' seit '+new Date(u.db.wartung.seit).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+' Uhr':''}. Denk daran, den Haken nach der Arbeit wieder zu entfernen.</p>`:''}
       <p class="note" style="margin:10px 0 0">Wer gerade angemeldet ist, sieht die Meldung spätestens nach 3 Minuten oder beim nächsten Öffnen der Seite. Einträge, die noch nicht gespeichert waren, bleiben auf dem Gerät und werden nach der Wartung automatisch übertragen.</p>
-      <p class="small" id="wmm" style="margin:6px 0 0"></p></div>`}
+      <p class="small" id="wmm" style="margin:6px 0 0"></p></div>
+    <div class="card"><h3>👁️ Vorschau</h3>
+      <p class="note" style="margin:0 0 12px">Sieh dir die komplette Seite so an, wie deine Kolleginnen und Kollegen sie sehen – auch während der Wartung und ohne dich ab- und wieder anzumelden. Oben erscheint ein oranger Balken, über den du jederzeit zurück zur Verwaltung kommst.</p>
+      <div class="row" style="align-items:flex-end">
+        <label class="f" style="flex:1;min-width:160px">Daten von<select id="pvu">${ids.map(id=>`<option value="${esc(id)}">${esc(id)}</option>`).join('')}</select></label>
+        <button class="btn" id="pvgo" ${ids.length?'':'disabled'}>Vorschau mit echten Daten</button>
+        <button class="btn sec" id="pvdemo">Mit Testdaten ansehen</button>
+      </div>
+      <p class="note" style="margin:10px 0 0"><b>Echte Daten:</b> Du siehst und bearbeitest die Daten der gewählten Person, Änderungen werden in deren Datei gespeichert. <b>Testdaten:</b> Beispielwerte zum Ausprobieren – nichts wird gespeichert.</p>
+    </div>`}
     ${u.db.admin||u.missing?'':'<div class="card" style="background:var(--koa-bg);color:var(--koa)"><b>Das Admin-Passwort ist noch „admin“.</b> Bitte ändere es jetzt – sonst kann jede Person mit Zugang zur Seite die Verwaltung öffnen.</div>'}
     <div class="card"><h3>Benutzer</h3>
       <ul class="list">${ids.map(id=>`<li><span class="x"><b>${esc(id)}</b><br><span class="note">registriert am ${u.db.users[id].created?dShort(u.db.users[id].created)+u.db.users[id].created.slice(0,4):'–'}</span></span>
@@ -819,6 +868,8 @@ async function pAdmin(){
       <button class="btn sec" id="ab">Ändern</button></div></div>
     <p class="small" id="am" style="margin:0 4px"></p>`;
   if($('#aretry'))$('#aretry').onclick=()=>pAdmin();
+  if($('#pvgo'))$('#pvgo').onclick=()=>startPreview($('#pvu').value);
+  if($('#pvdemo'))$('#pvdemo').onclick=()=>startPreview(null);
   const setW=async on=>{const m=$('#wmm');m.textContent='Speichert …';m.className='small muted';
     try{const v=$('#wt').value.trim(); const f=await loadUsers(); if(f.missing)throw new Error(f.missing);
       if(on)f.db.wartung={on:true,text:v,seit:(f.db.wartung&&f.db.wartung.on&&f.db.wartung.seit)||new Date().toISOString()}; else delete f.db.wartung;
@@ -1565,7 +1616,7 @@ function openSettings(){
   const s=data.settings, gh=user==='admin'||!user;
   openDlg(`<h3>${user?'Einstellungen':'Einrichtung'}</h3>
     ${user?`<div class="row" style="align-items:center;justify-content:space-between"><span>Angemeldet als <b>${esc(user==='admin'?'Admin':user)}</b></span>
-      <span>${isUser()?'<button class="btn ghost" id="spw">Passwort ändern</button>':''}</span></div><p class="small" id="spm" style="margin:6px 0 0"></p>`:''}
+      <span>${isUser()&&!preview?'<button class="btn ghost" id="spw">Passwort ändern</button>':''}</span></div><p class="small" id="spm" style="margin:6px 0 0"></p>`:''}
     ${gh?`<div class="sect"><div class="t">GitHub-Speicher</div>
       <p class="note" style="margin:0 0 10px">Trage hier das <b>private</b> Repository ein, in dem die Daten aller Benutzer liegen. Das Token wird nur in diesem Browser gespeichert.</p>
       <div class="row">
@@ -1665,7 +1716,7 @@ function paintTheme(){const d=isDark();$('#theme').innerHTML=d?SUN:MOON;$('#them
 try{const t=localStorage.getItem('azeit.theme');if(t)document.documentElement.dataset.theme=t}catch(e){}
 $('#theme').onclick=()=>{const t=isDark()?'light':'dark';document.documentElement.dataset.theme=t;try{localStorage.setItem('azeit.theme',t)}catch(e){}paintTheme()};
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',paintTheme); paintTheme();
-$('#lout').onclick=logout;
+$('#lout').onclick=()=>preview?endPreview():logout();
 
 /* ---------- Start ---------- */
 /* ---------- Passwort-Zugang (zugang.json) ---------- */
