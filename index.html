@@ -303,6 +303,9 @@ dialog{border:0;border-radius:22px;padding:0;background:var(--card);color:var(--
 .wkb .badge{max-width:100%;white-space:normal;overflow-wrap:anywhere;display:block;line-height:1.3}
 .wkt{font-size:13px;color:var(--muted);line-height:1.35}
 .wkt b{color:var(--text);font-weight:600}
+.ysg{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px 12px;align-items:end;margin-top:4px}
+.ysg label.f{min-width:0}.ysg .s2{grid-column:span 2}.ysg .s3{grid-column:span 3}
+@media (max-width:520px){.ysg{grid-template-columns:1fr 1fr}.ysg .s2,.ysg .s3{grid-column:span 1}.ysg .s2:first-child{grid-column:1/-1}}
 .zbtns{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}.zbtns .bs{display:none}
 @media (max-width:640px){.calhead #mt{flex-basis:100%}.zbtns{margin-left:0;width:100%;flex-wrap:nowrap}.zbtns .btn{flex:1 1 auto;padding:9px 10px;font-size:14px;white-space:nowrap}.zbtns .bl{display:none}.zbtns .bs{display:inline}}
 .wkr{font-size:.5em;font-weight:500;color:var(--muted);letter-spacing:0;white-space:nowrap}
@@ -1164,15 +1167,17 @@ function pZeiten(){
 // Einstellungen eines Jahres als Dialog (Anfangs-Gleitzeit, Urlaub, Sollzeiten)
 function yearSettings(y){
   const ys=data.years[y], st0=yearStart(data,y), hasPrev=!!data.years[String(y-1)];
+  const src=k=>st0[k]?'automatisch aus '+(y-1):'von Hand eingetragen';
   openDlg(`<h3>Einstellungen ${y}</h3>
-      <div class="row" style="margin-top:4px">
-        <label class="f">Anfangs-Gleitzeit (Std.)<input type="number" step="0.01" data-ys="startGleitzeit" value="${st0.gz}">${hasPrev?`<span class="note">${st0.autoG?'automatisch aus '+(y-1):'von Hand eingetragen'}</span>`:''}</label>
-        <label class="f">Jahresurlaub (Tage)<input type="number" step="0.5" data-ys="urlaub" value="${ys.urlaub}"></label>
-        <label class="f">Resturlaub aus ${y-1} (Tage)<input type="number" step="0.5" min="0" data-ys="restVorjahr" value="${st0.ru}">${hasPrev?`<span class="note">${st0.autoR?'automatisch aus '+(y-1):'von Hand eingetragen'}</span>`:''}</label>
-        <label class="f">Sollzeit Mo–Do (Std.)<input type="number" step="0.01" data-ys="sollMoDo" value="${ys.sollMoDo}"></label>
-        <label class="f">Sollzeit Fr Frühschicht (Std.)<input type="number" step="0.01" data-ys="sollFr" value="${ys.sollFr}"></label>
+      <div class="ysg">
+        <label class="f s2">Anfangs-Gleitzeit (Std.)<input type="number" step="0.01" data-ys="startGleitzeit" value="${st0.gz}"></label>
+        <label class="f s2">Jahresurlaub (Tage)<input type="number" step="0.5" data-ys="urlaub" value="${ys.urlaub}"></label>
+        <label class="f s2">Resturlaub aus ${y-1} (Tage)<input type="number" step="0.5" min="0" data-ys="restVorjahr" value="${st0.ru}"></label>
+        <label class="f s3">Sollzeit Mo–Do (Std.)<input type="number" step="0.01" data-ys="sollMoDo" value="${ys.sollMoDo}"></label>
+        <label class="f s3">Sollzeit Fr Frühschicht (Std.)<input type="number" step="0.01" data-ys="sollFr" value="${ys.sollFr}"></label>
       </div>
-      ${hasPrev?(st0.autoG&&st0.autoR?'<p class="note" style="margin:12px 0 0">Anfangs-Gleitzeit und Resturlaub werden laufend aus '+(y-1)+' übernommen. Änderst du dort noch etwas, passt sich '+y+' automatisch an. Trägst du hier selbst einen Wert ein, bleibt dieser fest.</p>':'<p style="margin:12px 0 0"><button class="btn sec" id="carry">Wieder automatisch aus '+(y-1)+' übernehmen</button></p>'):''}
+      ${hasPrev&&!(st0.autoG&&st0.autoR)?`<p class="note" style="margin:10px 0 0">Anfangs-Gleitzeit: ${src('autoG')} · Resturlaub: ${src('autoR')}</p>`:''}
+      ${hasPrev?(st0.autoG&&st0.autoR?'<p class="note" style="margin:12px 0 0">Anfangs-Gleitzeit und Resturlaub werden laufend aus '+(y-1)+' übernommen. Änderst du dort noch etwas, passt sich '+y+' automatisch an. Trägst du hier selbst einen Wert ein, bleibt dieser fest.</p>':'<p style="margin:12px 0 0"><button class="btn sec" id="carry" style="white-space:normal;max-width:100%">Wieder automatisch aus '+(y-1)+' übernehmen</button></p>'):''}
     <div class="row" style="margin-top:22px;justify-content:flex-end"><button class="btn" id="yok" autofocus>Fertig</button></div>`);
   const AF={startGleitzeit:'gzAuto',restVorjahr:'ruAuto'};
   $$('#dlgc [data-ys]').forEach(i=>i.onchange=()=>{const k=i.dataset.ys;ys[k]=Number(i.value)||0;if(AF[k]&&hasPrev)ys[AF[k]]=false;save();refreshZ();if(AF[k]&&hasPrev)yearSettings(y)});
