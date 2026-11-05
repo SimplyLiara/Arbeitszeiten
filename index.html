@@ -300,6 +300,8 @@ dialog{border:0;border-radius:22px;padding:0;background:var(--card);color:var(--
 .wkb .badge{max-width:100%;white-space:normal;overflow-wrap:anywhere;display:block;line-height:1.3}
 .wkt{font-size:13px;color:var(--muted);line-height:1.35}
 .wkt b{color:var(--text);font-weight:600}
+.zbtns{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}.zbtns .bs{display:none}
+@media (max-width:640px){.calhead #mt{flex-basis:100%}.zbtns{margin-left:0;width:100%;flex-wrap:nowrap}.zbtns .btn{flex:1 1 auto;padding:9px 10px;font-size:14px;white-space:nowrap}.zbtns .bl{display:none}.zbtns .bs{display:inline}}
 .wkr{font-size:.5em;font-weight:500;color:var(--muted);letter-spacing:0;white-space:nowrap}
 .wksum{display:flex;flex-wrap:wrap;gap:8px 24px;margin:14px 4px 0;font-size:15px}
 @media (max-width:899px){.wkv{grid-template-columns:1fr;gap:6px}.wkd{min-height:0;display:grid;grid-template-columns:78px 1fr;gap:10px;padding:12px}.wkh b{font-size:16px}}
@@ -1082,9 +1084,22 @@ function pZeiten(){
     ${years.map(v=>`<button class="pill ${v===y?'on':''}" data-y="${v}">${v}</button>`).join('')}
     <button class="pill" id="addy">+ Jahr</button>
   </div>
-  <div class="card" style="margin-top:16px">
-    <details><summary>Einstellungen ${y}</summary>
-      <div class="row" style="margin-top:14px">
+  <div class="calhead" style="margin-top:28px"><h2 id="mt"></h2><span class="zbtns"><button class="btn sec" id="pdf" title="Monatsbericht als PDF"><span class="bl">Monatsbericht (PDF)</span><span class="bs">Monat PDF</span></button><button class="btn sec" id="ypdf" title="Übersicht und alle Monate ${y} als PDF"><span class="bl">Jahresbericht (PDF)</span><span class="bs">Jahr PDF</span></button><button class="btn sec" id="yset" title="Anfangs-Gleitzeit, Urlaub und Sollzeiten für ${y}">⚙︎ <span class="bl">Einstellungen ${y}</span><span class="bs">Einstellungen</span></button></span></div>
+  <div class="pills nowrap" style="margin-bottom:14px">${MON.map((m,k)=>`<button class="pill ${k===view.month?'on':''}" data-m="${k}">${m.slice(0,3)}</button>`).join('')}</div>
+  <div class="card dlist" id="dt"></div>
+  <p class="note">Abwesenheit: K = krank, k.o.A. = krank ohne Attest, U = Urlaub, U/2 = halber Urlaubstag, RU = Resturlaub aus dem Vorjahr, RU/2 = halber Resturlaubstag, F = Feiertag. Feiertage werden automatisch eingetragen (Bundesland im Zahnrad). Am 24.12. und 31.12. wird an Arbeitstagen automatisch ein halber Urlaubstag eingetragen, der ganze Tag ist frei und die Gleitzeit bleibt gleich (abschaltbar im Zahnrad). Ein Tag mit Beginn, aber ohne Ende zählt erst zur Gleitzeit, wenn das Ende eingetragen ist. Pause: bis 6 Std. keine, über 6 Std. 30 Min., über 9 Std. 45 Min., jeweils plus eingetragener Zusatzpause. Die Schicht wechselt wochenweise; Freitage zählen nur in Frühschichtwochen. Einträge erscheinen automatisch im Kalender.</p>`;
+  $$('[data-y]').forEach(b=>b.onclick=()=>{view.year=b.dataset.y;view.month=null;pZeiten()});
+  $('#addy').onclick=()=>{const n=prompt('Welches Jahr hinzufügen?',String(Number(years[years.length-1])+1));if(!n)return;if(!/^20\d\d$/.test(n.trim()))return alert('Bitte eine Jahreszahl wie 2027 eingeben.');ensureYear(n.trim());save();view.year=n.trim();view.month=0;pZeiten()};
+  $('#pdf').onclick=()=>monthPdf(view.year,view.month);
+  $('#ypdf').onclick=()=>yearPdf(view.year); $('#yset').onclick=()=>yearSettings(y);
+  $$('[data-m]').forEach(b=>b.onclick=()=>{view.month=Number(b.dataset.m);$$('[data-m]').forEach(x=>x.classList.toggle('on',x===b));drawMonth()});
+  drawMonth();
+}
+// Einstellungen eines Jahres als Dialog (Anfangs-Gleitzeit, Urlaub, Sollzeiten)
+function yearSettings(y){
+  const ys=data.years[y], st0=yearStart(data,y), hasPrev=!!data.years[String(y-1)];
+  openDlg(`<h3>Einstellungen ${y}</h3>
+      <div class="row" style="margin-top:4px">
         <label class="f">Anfangs-Gleitzeit (Std.)<input type="number" step="0.01" data-ys="startGleitzeit" value="${st0.gz}">${hasPrev?`<span class="note">${st0.autoG?'automatisch aus '+(y-1):'von Hand eingetragen'}</span>`:''}</label>
         <label class="f">Jahresurlaub (Tage)<input type="number" step="0.5" data-ys="urlaub" value="${ys.urlaub}"></label>
         <label class="f">Resturlaub aus ${y-1} (Tage)<input type="number" step="0.5" min="0" data-ys="restVorjahr" value="${st0.ru}">${hasPrev?`<span class="note">${st0.autoR?'automatisch aus '+(y-1):'von Hand eingetragen'}</span>`:''}</label>
@@ -1092,21 +1107,11 @@ function pZeiten(){
         <label class="f">Sollzeit Fr Frühschicht (Std.)<input type="number" step="0.01" data-ys="sollFr" value="${ys.sollFr}"></label>
       </div>
       ${hasPrev?(st0.autoG&&st0.autoR?'<p class="note" style="margin:12px 0 0">Anfangs-Gleitzeit und Resturlaub werden laufend aus '+(y-1)+' übernommen. Änderst du dort noch etwas, passt sich '+y+' automatisch an. Trägst du hier selbst einen Wert ein, bleibt dieser fest.</p>':'<p style="margin:12px 0 0"><button class="btn sec" id="carry">Wieder automatisch aus '+(y-1)+' übernehmen</button></p>'):''}
-    </details>
-  </div>
-  <div class="calhead" style="margin-top:40px"><h2 id="mt"></h2><button class="btn sec" id="pdf">Monatsbericht (PDF)</button><button class="btn sec" id="ypdf" title="Übersicht und alle Monate ${y}">Jahresbericht (PDF)</button><button class="btn sec" id="ycsv" title="Alle Tage ${y} als Tabelle für Excel">Excel (CSV)</button></div>
-  <div class="pills nowrap" style="margin-bottom:14px">${MON.map((m,k)=>`<button class="pill ${k===view.month?'on':''}" data-m="${k}">${m.slice(0,3)}</button>`).join('')}</div>
-  <div class="card dlist" id="dt"></div>
-  <p class="note">Abwesenheit: K = krank, k.o.A. = krank ohne Attest, U = Urlaub, U/2 = halber Urlaubstag, RU = Resturlaub aus dem Vorjahr, RU/2 = halber Resturlaubstag, F = Feiertag. Feiertage werden automatisch eingetragen (Bundesland im Zahnrad). Am 24.12. und 31.12. wird an Arbeitstagen automatisch ein halber Urlaubstag eingetragen, der ganze Tag ist frei und die Gleitzeit bleibt gleich (abschaltbar im Zahnrad). Ein Tag mit Beginn, aber ohne Ende zählt erst zur Gleitzeit, wenn das Ende eingetragen ist. Pause: bis 6 Std. keine, über 6 Std. 30 Min., über 9 Std. 45 Min., jeweils plus eingetragener Zusatzpause. Die Schicht wechselt wochenweise; Freitage zählen nur in Frühschichtwochen. Einträge erscheinen automatisch im Kalender.</p>`;
-  $$('[data-y]').forEach(b=>b.onclick=()=>{view.year=b.dataset.y;view.month=null;pZeiten()});
-  $('#addy').onclick=()=>{const n=prompt('Welches Jahr hinzufügen?',String(Number(years[years.length-1])+1));if(!n)return;if(!/^20\d\d$/.test(n.trim()))return alert('Bitte eine Jahreszahl wie 2027 eingeben.');ensureYear(n.trim());save();view.year=n.trim();view.month=0;pZeiten()};
+    <div class="row" style="margin-top:22px;justify-content:flex-end"><button class="btn" id="yok" autofocus>Fertig</button></div>`);
   const AF={startGleitzeit:'gzAuto',restVorjahr:'ruAuto'};
-  $$('[data-ys]').forEach(i=>i.onchange=()=>{const k=i.dataset.ys;ys[k]=Number(i.value)||0;if(AF[k]&&hasPrev){ys[AF[k]]=false;save();return pZeiten()}save();refreshZ()});
-  if($('#carry'))$('#carry').onclick=()=>{ys.gzAuto=true;ys.ruAuto=true;save();pZeiten()};
-  $('#pdf').onclick=()=>monthPdf(view.year,view.month);
-  $('#ypdf').onclick=()=>yearPdf(view.year); $('#ycsv').onclick=()=>yearCsv(view.year);
-  $$('[data-m]').forEach(b=>b.onclick=()=>{view.month=Number(b.dataset.m);$$('[data-m]').forEach(x=>x.classList.toggle('on',x===b));drawMonth()});
-  drawMonth();
+  $$('#dlgc [data-ys]').forEach(i=>i.onchange=()=>{const k=i.dataset.ys;ys[k]=Number(i.value)||0;if(AF[k]&&hasPrev)ys[AF[k]]=false;save();refreshZ();if(AF[k]&&hasPrev)yearSettings(y)});
+  if($('#carry'))$('#carry').onclick=()=>{ys.gzAuto=true;ys.ruAuto=true;save();refreshZ();yearSettings(y)};
+  $('#yok').onclick=()=>{closeDlg();pZeiten()};
 }
 function drawMonth(){
   const y=view.year, m=view.month, t=today(), pre=y+'-'+String(m+1).padStart(2,'0');
@@ -1444,16 +1449,6 @@ function yearPdf(y){
   pdf.text(L,pdf.H-14,'Gleitzeit Monat enthält Korrekturen. Die folgenden Seiten zeigen jeden Monat im Detail.',7,false,'l',.5);
   for(let m=0;m<=lastM;m++)monthPages(pdf,y,m,c);
   download(pdf.blob(),`Jahresbericht_${y}_${user}.pdf`);
-}
-// Alle Tage eines Jahres als CSV (Semikolon, Dezimalkomma – öffnet sich direkt in Excel)
-function yearCsv(y){
-  y=String(y); const c=computeYear(data,y), n=v=>(Math.round(v*100)/100).toFixed(2).replace('.',','), q=v=>{v=String(v??'');return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
-  const lines=[['Datum','Wochentag','Schicht','Abwesenheit','Beginn','Ende','Zusatzpause (Min.)','Pause gesamt (Min.)','Ist (Std.)','Soll (Std.)','Korrektur (Std.)','Gleitzeit Tag (Std.)','Gleitzeit gesamt (Std.)','Termine'].join(';')];
-  for(const r of c.rows){const e=data.days[r.d]||{}, act=(r.a&&r.soll>0)||(e.s&&e.e)||e.k;
-    const ab=r.a==='F'&&r.hn?'Feiertag ('+r.hn+')':r.a==='U/2B'?'½ Urlaub ('+r.bn+')':r.a?ABSN[r.a]:'';
-    lines.push([r.d.slice(8)+'.'+r.d.slice(5,7)+'.'+y,DOWL[wd(r.d)],r.soll>0?SHN[r.shift]:'frei',ab,e.s||'',e.e||'',e.p||'',r.pause?Math.round(r.pause*60):'',
-      r.open?'':(r.ist||act?n(r.ist):''),n(r.soll),e.k?n(e.k):'',act?n(r.gz):'',n(r.cum),eventsOn(r.d).map(x=>(x.time?span(x)+' ':'')+x.title).join(' | ')].map(q).join(';'))}
-  download(new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),`Zeiterfassung_${y}_${user}.csv`);
 }
 /* ---------- Kalenderdatei (.ics) ---------- */
 function icsExport(){
