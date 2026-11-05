@@ -65,6 +65,7 @@ nav .sp{flex:1}
 nav .sm{display:none}
 #lout{border:0;background:var(--soft);cursor:pointer;font-size:13px;padding:6px 10px;border-radius:980px;white-space:nowrap;flex:none}
 body.out #lout{display:none}
+@media (max-width:380px){nav a.tab{padding:6px 2px !important} #theme,#gear{padding:4px 2px !important} #lout{padding:5px 5px !important} nav .in{padding:0 4px !important;gap:0 !important}}
 @media (max-width:440px){nav a.tab{padding:6px 3px !important;font-size:11px !important} #lout{padding:6px 6px !important;font-size:11px !important} nav .in{padding:0 6px !important}}
 nav a.tab.adm{display:none}
 body.admin nav a.tab{display:none}
@@ -341,6 +342,7 @@ footer{text-align:center;font-size:12px;color:var(--muted);padding:0 16px 40px}
   <a class="tab" href="#/start">Start</a>
   <a class="tab" href="#/rechner">Rechner</a>
   <a class="tab" href="#/zeiten"><span class="lg">Zeiterfassung</span><span class="sm">Zeiten</span></a>
+  <a class="tab" href="#/statistik">Statistik</a>
   <a class="tab" href="#/kalender">Kalender</a>
   <a class="tab" href="#/aufgaben">Aufgaben</a>
   <a class="tab adm" href="#/verwaltung">Verwaltung</a>
@@ -348,7 +350,7 @@ footer{text-align:center;font-size:12px;color:var(--muted);padding:0 16px 40px}
   <div id="sync" title="Speicherstatus"><i></i><span>Lokal</span></div>
   <button id="theme" aria-label="Dunkelmodus umschalten" title="Hell/Dunkel"></button>
   <button id="gear" aria-label="Einstellungen" title="Einstellungen">⚙︎</button>
-  <button id="lout" class="tab">Abmelden</button>
+  <button id="lout" class="tab" aria-label="Abmelden" title="Abmelden"><span class="lg">Abmelden</span><span class="sm"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-4px"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5"/><path d="M5 12h11"/></svg></span></button>
 </div></nav>
 <main id="app"></main>
 <footer>Jede Person sieht nur ihre eigenen Daten · gespeichert im privaten GitHub-Repository</footer>
@@ -864,7 +866,7 @@ function render(){
   if(maint)return pWartung();
   const r=(location.hash.replace(/^#\//,'')||'start').split('?')[0];
   $$('nav a.tab').forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#/'+r));
-  ({start:pStart,rechner:pRechner,zeiten:pZeiten,kalender:pKalender,aufgaben:pAufgaben}[r]||pStart)();
+  ({start:pStart,rechner:pRechner,zeiten:pZeiten,statistik:pStatistik,kalender:pKalender,aufgaben:pAufgaben}[r]||pStart)();
 }
 window.addEventListener('hashchange',()=>{render();scrollTo(0,0)});
 
@@ -1086,7 +1088,6 @@ function pZeiten(){
   </div>
   <div class="card ovcard"><h3>Monatsübersicht</h3><table id="ov" class="ov"></table>
     <div class="row" style="margin-top:14px;gap:8px"><button class="btn sec" id="ypdf">Jahresbericht ${y} (PDF)</button><button class="btn sec" id="ycsv">Jahr ${y} als Excel-Tabelle (CSV)</button></div></div>
-  <div class="card"><h3>Statistik ${y}</h3><div id="zstat"></div></div>
   <div class="calhead" style="margin-top:48px"><h2 id="mt"></h2><button class="btn sec" id="pdf">Monatsbericht (PDF)</button></div>
   <div class="pills nowrap" style="margin-bottom:14px">${MON.map((m,k)=>`<button class="pill ${k===view.month?'on':''}" data-m="${k}">${m.slice(0,3)}</button>`).join('')}</div>
   <div class="card dlist" id="dt"></div>
@@ -1156,9 +1157,18 @@ function refreshZ(){
     <div class="card stat"><div class="l">Verbleibende Urlaubstage</div><div class="v">${dnum(c.rest)}</div><div class="s">${dnum(c.tot.u)} von ${dnum(data.years[y].urlaub)} genommen/geplant</div></div>
     <div class="card stat"><div class="l">Resturlaub aus ${y-1}</div><div class="v ${c.restVJ<0?'neg':''}">${dnum(c.restVJ)}</div><div class="s">${c.start.ru?`von ${dnum(c.start.ru)} Tagen · ${dnum(c.tot.ru)} verplant`:'keine Tage übertragen'}</div></div>
     <div class="card stat"><div class="l">Krankentage</div><div class="v">${dnum(c.tot.k+c.tot.koa)}</div><div class="s">${dnum(c.tot.k)} mit Attest · ${dnum(c.tot.koa)} ohne (k.o.A.)</div></div>`;
-  drawStats(c,String(y));
 }
 /* ---------- Statistik ---------- */
+function pStatistik(){
+  const years=Object.keys(data.years).sort(), ty=today().slice(0,4);
+  if(!view.statY||!data.years[view.statY])view.statY=data.years[ty]?ty:years[years.length-1];
+  const y=view.statY;
+  $('#app').innerHTML=`<section class="hero"><h1>Statistik.</h1><p class="sub">Auswertung ${y}</p></section>
+    ${years.length>1?`<div class="pills" style="justify-content:center;margin-bottom:20px">${years.map(v=>`<button class="pill ${v===y?'on':''}" data-sy="${v}">${v}</button>`).join('')}</div>`:''}
+    <div class="card"><div id="zstat"></div></div>`;
+  $$('[data-sy]').forEach(b=>b.onclick=()=>{view.statY=b.dataset.sy;pStatistik()});
+  drawStats(computeYear(data,y),y);
+}
 function niceTicks(lo,hi){const r=hi-lo||1, st=[.5,1,2,2.5,5,10,20,25,50,100].find(x=>r/x<=4)||200, a=Math.floor(lo/st)*st, out=[];for(let v=a;v<=hi+1e-9;v+=st)out.push(Math.round(v*100)/100);if(out[out.length-1]<hi)out.push(out[out.length-1]+st);return out}
 function drawStats(c,y){
   const el=$('#zstat'); if(!el)return;
