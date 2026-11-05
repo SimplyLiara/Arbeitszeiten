@@ -649,6 +649,21 @@ async function push(tries=0){
   if(again){again=false;push()}
 }
 /* ---------- Admin-Vorschau ---------- */
+// Echte Daten nur mit dem Passwort der jeweiligen Person – so sieht der Admin nur Daten, für die er das Passwort kennt
+function previewLogin(id){
+  openDlg(`<h3>Vorschau mit echten Daten</h3>
+    <p class="muted" style="margin:0 0 14px">Zum Schutz der Daten: Gib das Passwort von <b>${esc(id)}</b> ein.</p>
+    <label class="f">Passwort von ${esc(id)}<input type="password" id="pvp" autocomplete="off"></label>
+    <p class="small neg" id="pvm" style="margin:10px 0 0"></p>
+    <div class="row" style="margin-top:18px;justify-content:flex-end"><button class="btn ghost" id="pvx">Abbrechen</button><button class="btn" id="pvok">Vorschau öffnen</button></div>`);
+  const go=async()=>{const pw=$('#pvp').value, m=$('#pvm'); m.textContent=''; if(!pw)return m.textContent='Bitte das Passwort eingeben.';
+    $('#pvok').disabled=true;
+    try{const u=await loadUsers(); if(await checkPw(u.db.users[id],pw)){closeDlg();return startPreview(id)} m.textContent='Das Passwort ist falsch.'}
+    catch(e){m.textContent=netMsg(e)}
+    $('#pvok').disabled=false; $('#pvp').select();
+  };
+  $('#pvok').onclick=go; $('#pvp').onkeydown=e=>{if(e.key==='Enter')go()}; $('#pvx').onclick=closeDlg; $('#pvp').focus();
+}
 async function startPreview(id){
   view.year=view.month=view.calY=view.calM=view.statY=view.calW=null;
   preview=id?{id}:{demo:true}; maint=null; sha=null; ls.del(LSB); ls.set(LSD,'0');
@@ -848,7 +863,7 @@ async function pAdmin(){
         <button class="btn" id="pvgo" ${ids.length?'':'disabled'}>Vorschau mit echten Daten</button>
         <button class="btn sec" id="pvdemo">Mit Testdaten ansehen</button>
       </div>
-      <p class="note" style="margin:10px 0 0"><b>Echte Daten:</b> Du siehst und bearbeitest die Daten der gewählten Person, Änderungen werden in deren Datei gespeichert. <b>Testdaten:</b> Beispielwerte zum Ausprobieren – nichts wird gespeichert.</p>
+      <p class="note" style="margin:10px 0 0"><b>Echte Daten:</b> Nur mit dem Passwort der gewählten Person. Du siehst und bearbeitest dann deren Daten, Änderungen werden in deren Datei gespeichert. <b>Testdaten:</b> Beispielwerte zum Ausprobieren – nichts wird gespeichert.</p>
     </div>`}
     ${u.db.admin||u.missing?'':'<div class="card" style="background:var(--koa-bg);color:var(--koa)"><b>Das Admin-Passwort ist noch „admin“.</b> Bitte ändere es jetzt – sonst kann jede Person mit Zugang zur Seite die Verwaltung öffnen.</div>'}
     <div class="card"><h3>Benutzer</h3>
@@ -868,7 +883,7 @@ async function pAdmin(){
       <button class="btn sec" id="ab">Ändern</button></div></div>
     <p class="small" id="am" style="margin:0 4px"></p>`;
   if($('#aretry'))$('#aretry').onclick=()=>pAdmin();
-  if($('#pvgo'))$('#pvgo').onclick=()=>startPreview($('#pvu').value);
+  if($('#pvgo'))$('#pvgo').onclick=()=>previewLogin($('#pvu').value);
   if($('#pvdemo'))$('#pvdemo').onclick=()=>startPreview(null);
   const setW=async on=>{const m=$('#wmm');m.textContent='Speichert …';m.className='small muted';
     try{const v=$('#wt').value.trim(); const f=await loadUsers(); if(f.missing)throw new Error(f.missing);
