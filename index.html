@@ -449,6 +449,8 @@ function istOf(e,soll){
   if(a==='U/2'||a==='RU/2')return soll/2+workedOf(e);
   return workedOf(e);
 }
+// Kaufmännisch auf 2 Nachkommastellen runden (wie das Gleitzeitkonto der Arbeitsstelle: jeder Tag wird einzeln gerundet)
+const r2=x=>Math.round(x*100+(x>=0?1e-7:-1e-7))/100;
 function computeYear(data,y){
   const ys=data.years[y], st=data.settings; P45=st.p45||'ist';
   const rows=[], months=[];
@@ -457,16 +459,17 @@ function computeYear(data,y){
   let cum=st0.gz;
   const tot={ist:0,soll:0,gz:0,u:0,ru:0,k:0,koa:0};
   for(let d=y+'-01-01';d.slice(0,4)==y;d=addDays(d,1)){
-    const e=dayEntry(data,d), soll=sollOf(d,ys,st), ist=istOf(e,soll);
+    const e=dayEntry(data,d), soll=sollOf(d,ys,st), ist=r2(istOf(e,soll));
     const open=!!(e.s&&!e.e&&!e.a);                                // Beginn ohne Ende: zählt noch nicht
-    const gz=((e.a||(e.s&&e.e))?ist-soll:0)+(Number(e.k)||0);     // Korrektur zählt zur Tagesgleitzeit
-    cum+=gz;
+    const gz=r2(((e.a||(e.s&&e.e))?ist-soll:0)+(Number(e.k)||0));     // Tagesgleitzeit inkl. Korrektur, auf 2 Stellen gerundet
+    cum=r2(cum+gz);
     const M=months[Number(d.slice(5,7))-1];
     M.ist+=ist;M.soll+=soll;M.gz+=gz;
     if(e.a==='U')M.u+=1; if(e.a==='U/2'||e.a==='U/2B')M.u+=.5; if(e.a==='RU')M.ru+=1; if(e.a==='RU/2')M.ru+=.5; if(e.a==='K')M.k+=1; if(e.a==='k.o.A.')M.koa+=1;
     rows.push({d,shift:shiftOf(d,st),soll,ist,gz,cum,open,a:e.a||'',hn:e.hn||'',bn:e.bn||'',pause:pauseOf(e)});
   }
-  for(const M of months)for(const k in tot)tot[k]+=M[k];
+  for(const M of months){for(const k of ['ist','soll','gz'])M[k]=r2(M[k]);for(const k in tot)tot[k]+=M[k]}
+  tot.ist=r2(tot.ist);tot.soll=r2(tot.soll);tot.gz=r2(tot.gz);
   return {rows,months,tot,end:cum,rest:(Number(ys.urlaub)||0)-tot.u,restVJ:st0.ru-tot.ru,start:st0};
 }
 // Anfangswerte eines Jahres: automatisch live aus dem Vorjahr, solange nicht von Hand überschrieben.
